@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>경제 뉴스 시세판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css"></script>
+<style>
+  :root{
+    --bg: #0A0E14;
+    --panel: #12161F;
+    --panel-border: #1F2530;
+    --text: #E8EAED;
+    --muted: #7A8699;
+    --up: #E03131;
+    --down: #4C7CF0;
+    --amber: #F0B429;
+    --mono: 'IBM Plex Mono', monospace;
+    --kr: 'Pretendard', -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--kr);
+    height: 100%;
+  }
+
+  .ticker-bar {
+    background: #000;
+    border-bottom: 1px solid var(--panel-border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .ticker-left {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .ticker-left .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--up);
+    box-shadow: 0 0 8px var(--up);
+    animation: blink 1.6s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  .ticker-left h1 {
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    margin: 0;
+    color: var(--amber);
+    font-weight: 600;
+  }
+
+  .clock {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .layout {
+    display: flex;
+    max-width: 1280px;
+    margin: 0 auto;
+    min-height: calc(100vh - 45px);
+  }
+
+  /* 왼쪽 사이드바 */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--panel-border);
+    padding: 18px 0;
+  }
+
+  .sidebar-head {
+    padding: 0 18px 14px;
+  }
+
+  .add-cat-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--down);
+    color: var(--down);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    padding: 9px 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .add-cat-btn:hover { background: var(--down); color: #000; }
+
+  .add-form {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 18px 16px;
+    border-bottom: 1px solid var(--panel-border);
+    margin-bottom: 8px;
+  }
+  .add-form.open { display: flex; }
+
+  .add-form input {
+    background: #0d1017;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--kr);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 2px;
+    width: 100%;
+  }
+
+  .add-form button {
+    background: var(--amber);
+    border: none;
+    color: #000;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .cat-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .cat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    gap: 8px;
+  }
+
+  .cat-item:hover { background: #0d1017; }
+
+  .cat-item.active {
+    background: #171b24;
+    border-left-color: var(--amber);
+  }
+
+  .cat-item .label {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .cat-item .code {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    padding: 1px 5px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .cat-item.active .code { background: var(--amber); color: #000; }
+
+  .cat-item .name {
+    font-size: 13.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cat-item .delete-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 6px;
+    flex-shrink: 0;
+    opacity: 0;
+  }
+  .cat-item:hover .delete-btn { opacity: 1; }
+  .cat-item .delete-btn:hover { color: var(--up); }
+
+  /* 오른쪽 콘텐츠 */
+  .content {
+    flex: 1;
+    min-width: 0;
+    padding: 18px 24px 40px;
+  }
+
+  .content-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .content-head .title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .content-head h2 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .content-head .code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    padding: 2px 7px;
+    border-radius: 2px;
+  }
+
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .refresh-btn:hover { background: var(--amber); color: #000; }
+  .refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .news-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+  }
+
+  .news-item {
+    padding: 12px 4px;
+    border-bottom: 1px solid #171b24;
+  }
+  .news-item:last-child { border-bottom: none; }
+
+  .news-item a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14.5px;
+    line-height: 1.55;
+    display: block;
+  }
+  .news-item a:hover { color: var(--amber); }
+
+  .news-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .source-tag {
+    padding: 0 4px;
+    border: 1px solid var(--panel-border);
+    border-radius: 2px;
+  }
+
+  .empty, .loading, .error {
+    padding: 40px 4px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+  .error { color: var(--up); }
+
+  .section-divider {
+    padding: 10px 4px 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  .empty-sidebar {
+    padding: 14px 18px;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-family: var(--mono);
+  }
+
+  @media (max-width: 720px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--panel-border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="ticker-bar">
+  <div class="ticker-left">
+    <span class="dot"></span>
+    <h1>경제 뉴스 시세판</h1>
+  </div>
+  <div class="clock" id="clock">--:--:--</div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <button class="add-cat-btn" id="toggleAddBtn">+ 카테고리 추가</button>
+    </div>
+
+    <div class="add-form" id="addForm">
+      <input type="text" name="name" placeholder="카테고리 이름 (예: 반도체)" />
+      <input type="text" name="query" placeholder="검색어 (예: 반도체 수출)" />
+      <button id="submitAddBtn">추가</button>
+    </div>
+
+    <ul class="cat-list" id="catList"></ul>
+  </div>
+
+  <div class="content">
+    <div class="content-head">
+      <div class="title">
+        <span class="code" id="activeCode">-</span>
+        <h2 id="activeName">카테고리를 선택하세요</h2>
+      </div>
+      <button class="refresh-btn" id="refreshBtn" disabled>업데이트 ↻</button>
+    </div>
+
+    <ul class="news-list" id="newsList">
+      <li class="empty">왼쪽에서 카테고리를 클릭하면 뉴스가 여기에 표시됩니다</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "newsDashboardCategories";
+
+const DEFAULT_CATEGORIES = [
+  { id: "kospi",       code: "KR-EQ",  name: "국내증시 (국장)",  query: "코스피 국내증시" },
+  { id: "us",          code: "US-EQ",  name: "해외증시 (미장)",  query: "나스닥 다우 미국증시" },
+  { id: "fx",          code: "FX",     name: "환율·엔화·달러",   query: "환율 달러 엔화" },
+  { id: "rate",        code: "RATE",   name: "금리",             query: "기준금리 금리" },
+  { id: "realestate",  code: "R-EST",  name: "부동산",           query: "부동산 아파트값" },
+];
+
+function loadCategories() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return DEFAULT_CATEGORIES.slice();
+}
+
+function saveCategories(cats) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+}
+
+let categories = loadCategories();
+let activeId = categories.length ? categories[0].id : null;
+
+const catList = document.getElementById("catList");
+const newsList = document.getElementById("newsList");
+const activeName = document.getElementById("activeName");
+const activeCode = document.getElementById("activeCode");
+const refreshBtn = document.getElementById("refreshBtn");
+
+function codeFromName(name) {
+  return name.slice(0, 4).toUpperCase();
+}
+
+function renderSidebar() {
+  catList.innerHTML = "";
+
+  if (categories.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-sidebar";
+    li.textContent = "카테고리가 없습니다. 위에서 추가해보세요.";
+    catList.appendChild(li);
+    return;
+  }
+
+  categories.forEach((cat) => {
+    const li = document.createElement("li");
+    li.className = "cat-item" + (cat.id === activeId ? " active" : "");
+    li.innerHTML = `
+      <span class="label">
+        <span class="code">${cat.code || codeFromName(cat.name)}</span>
+        <span class="name" title="${cat.name}">${cat.name}</span>
+      </span>
+      <button class="delete-btn" data-cat="${cat.id}" title="삭제">✕</button>
+    `;
+    li.addEventListener("click", (e) => {
+      if (e.target.closest(".delete-btn")) return;
+      selectCategory(cat.id);
+    });
+    li.querySelector(".delete-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeCategory(cat.id);
+    });
+    catList.appendChild(li);
+  });
+}
+
+function selectCategory(id) {
+  activeId = id;
+  renderSidebar();
+  const cat = categories.find((c) => c.id === id);
+  if (!cat) return;
+  activeName.textContent = cat.name;
+  activeCode.textContent = cat.code || codeFromName(cat.name);
+  refreshBtn.disabled = false;
+  updateCategory(id);
+}
+
+function removeCategory(id) {
+  categories = categories.filter((c) => c.id !== id);
+  saveCategories(categories);
+  if (activeId === id) {
+    activeId = categories.length ? categories[0].id : null;
+    if (activeId) {
+      selectCategory(activeId);
+    } else {
+      activeName.textContent = "카테고리를 선택하세요";
+      activeCode.textContent = "-";
+      refreshBtn.disabled = true;
+      newsList.innerHTML = `<li class="empty">왼쪽에서 카테고리를 클릭하면 뉴스가 여기에 표시됩니다</li>`;
+    }
+  }
+  renderSidebar();
+}
+
+function fmtTime(dateStr) {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderNews(data) {
+  newsList.innerHTML = "";
+
+  const naver = data.naver || [];
+  const google = data.google || [];
+
+  if (naver.length === 0 && google.length === 0) {
+    const li = document.createElement("li");
+    li.className = data.errors && data.errors.length ? "error" : "empty";
+    li.textContent = data.errors && data.errors.length ? data.errors.join(" / ") : "가져온 뉴스가 없습니다";
+    newsList.appendChild(li);
+    return;
+  }
+
+  const appendSection = (label, items) => {
+    if (items.length === 0) return;
+    const divider = document.createElement("li");
+    divider.className = "section-divider";
+    divider.textContent = label;
+    newsList.appendChild(divider);
+
+    items.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "news-item";
+      li.innerHTML = `
+        <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a>
+        <div class="news-meta">
+          <span class="source-tag">${item.source || ""}</span>
+          <span>${fmtTime(item.pubDate)}</span>
+        </div>
+      `;
+      newsList.appendChild(li);
+    });
+  };
+
+  appendSection("NAVER", naver);
+  appendSection("GOOGLE", google);
+}
+
+async function updateCategory(id) {
+  const cat = categories.find((c) => c.id === id);
+  if (!cat || id !== activeId) return;
+
+  refreshBtn.disabled = true;
+  newsList.innerHTML = `<li class="loading">불러오는 중...</li>`;
+
+  try {
+    const res = await fetch(`/api/news?q=${encodeURIComponent(cat.query)}`);
+    const data = await res.json();
+    if (id === activeId) renderNews(data);
+  } catch (err) {
+    if (id === activeId) newsList.innerHTML = `<li class="error">불러오기 실패: ${err.message}</li>`;
+  } finally {
+    if (id === activeId) refreshBtn.disabled = false;
+  }
+}
+
+refreshBtn.addEventListener("click", () => {
+  if (activeId) updateCategory(activeId);
+});
+
+const addForm = document.getElementById("addForm");
+document.getElementById("toggleAddBtn").addEventListener("click", () => {
+  addForm.classList.toggle("open");
+});
+
+document.getElementById("submitAddBtn").addEventListener("click", () => {
+  const nameInput = addForm.querySelector('input[name="name"]');
+  const queryInput = addForm.querySelector('input[name="query"]');
+  const name = nameInput.value.trim();
+  const query = queryInput.value.trim();
+
+  if (!name || !query) {
+    alert("카테고리 이름과 검색어를 모두 입력해주세요.");
+    return;
+  }
+
+  const id = "cat_" + Date.now();
+  categories.push({ id, name, query });
+  saveCategories(categories);
+  renderSidebar();
+
+  nameInput.value = "";
+  queryInput.value = "";
+  addForm.classList.remove("open");
+
+  selectCategory(id);
+});
+
+function tickClock() {
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("ko-KR");
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+renderSidebar();
+if (activeId) selectCategory(activeId);
+</script>
+
+</body>
+</html>
