@@ -4,12 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>경제 뉴스 시세판</title>
-<meta name="description" content="환율과 국장·미장·금리·부동산 뉴스를 한 눈에 보는 개인 대시보드" />
+<meta name="description" content="지수·환율과 국장·미장·금리·부동산 뉴스를 한 눈에 보는 개인 대시보드" />
 
 <link rel="manifest" href="/manifest.json" />
-<meta name="theme-color" content="#0B0E1A" />
+<meta name="theme-color" content="#FFFFFF" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="뉴스시세판" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" />
@@ -20,17 +20,19 @@
 
 <style>
   :root{
-    --bg: #0B0E1A;
-    --bg-elev: rgba(255,255,255,0.05);
-    --bg-elev-strong: rgba(255,255,255,0.08);
-    --border: rgba(255,255,255,0.09);
-    --text: #F3F5F9;
-    --text-dim: #8A93A6;
-    --text-faint: #5B6477;
-    --accent: #6D6CFF;
-    --accent-2: #9B6CFF;
-    --up: #FF4D5E;
-    --down: #3B9CFF;
+    --bg: #F4F5F7;
+    --card: #FFFFFF;
+    --card-soft: #F8F9FB;
+    --border: #E7E9EE;
+    --text: #15171F;
+    --text-dim: #666C7A;
+    --text-faint: #9BA1AE;
+    --accent: #5B5FEE;
+    --accent-2: #8B6CFF;
+    --accent-soft: #EEEEFF;
+    --up: #E0303D;
+    --down: #2F6FED;
+    --realtime: #15B371;
     --mono: 'IBM Plex Mono', monospace;
     --kr: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
     --safe-top: env(safe-area-inset-top, 0px);
@@ -45,24 +47,15 @@
     color: var(--text);
     font-family: var(--kr);
     min-height: 100%;
-    overscroll-behavior-y: none;
   }
 
-  body {
-    background:
-      radial-gradient(circle at 15% 0%, rgba(109,108,255,0.16), transparent 42%),
-      radial-gradient(circle at 85% 8%, rgba(155,108,255,0.12), transparent 40%),
-      var(--bg);
-  }
-
-  a { color: inherit; }
+  a { color: inherit; text-decoration: none; }
 
   .app {
-    max-width: 640px;
+    max-width: 1180px;
     margin: 0 auto;
     min-height: 100vh;
-    padding-bottom: calc(28px + var(--safe-bottom));
-    position: relative;
+    padding-bottom: calc(24px + var(--safe-bottom));
   }
 
   /* ===== 헤더 ===== */
@@ -70,152 +63,208 @@
     position: sticky;
     top: 0;
     z-index: 30;
-    padding: calc(14px + var(--safe-top)) 18px 10px;
-    background: rgba(11,14,26,0.82);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    padding: calc(12px + var(--safe-top)) 16px 10px;
+    background: rgba(244,245,247,0.9);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
-  }
-
-  .app-header-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
   }
 
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
+  .brand { display: flex; align-items: center; gap: 8px; }
   .brand .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
+    width: 7px; height: 7px; border-radius: 50%;
     background: var(--up);
-    box-shadow: 0 0 10px var(--up);
+    box-shadow: 0 0 8px var(--up);
     animation: blink 1.8s ease-in-out infinite;
   }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
-
-  .brand h1 {
-    font-size: 16px;
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: -0.01em;
-  }
+  .brand h1 { font-size: 16px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
 
   .header-actions { display: flex; align-items: center; gap: 6px; }
-
   .icon-btn {
-    width: 34px; height: 34px;
-    border-radius: 12px;
+    width: 32px; height: 32px;
+    border-radius: 10px;
     border: 1px solid var(--border);
-    background: var(--bg-elev);
+    background: var(--card);
     color: var(--text);
     display: flex; align-items: center; justify-content: center;
-    font-size: 15px;
+    font-size: 14px;
     cursor: pointer;
-    transition: background .15s, transform .15s;
   }
   .icon-btn:active { transform: scale(0.92); }
   .icon-btn.spinning svg { animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .refresh-track {
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
     height: 2px;
-    margin-top: 10px;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.06);
+    background: transparent;
     overflow: hidden;
   }
   .refresh-fill {
-    height: 100%;
-    width: 0%;
+    height: 100%; width: 0%;
     background: linear-gradient(90deg, var(--accent), var(--accent-2));
     transition: width 1s linear;
   }
 
-  /* ===== 환율 티커 ===== */
-  .fx-section { padding: 14px 0 4px; }
-  .fx-scroll {
+  .main-pad { padding: 12px 16px 0; }
+
+  /* ===== 지수 카드 ===== */
+  .index-scroll {
     display: flex;
     gap: 10px;
     overflow-x: auto;
-    padding: 0 18px 4px;
+    padding-bottom: 4px;
     scroll-snap-type: x proximity;
   }
-  .fx-scroll::-webkit-scrollbar { display: none; }
+  .index-scroll::-webkit-scrollbar { display: none; }
 
-  .fx-card {
+  .index-card {
     flex: 0 0 auto;
     scroll-snap-align: start;
-    min-width: 128px;
-    background: linear-gradient(180deg, var(--bg-elev-strong), var(--bg-elev));
-    border: 1px solid var(--border);
-    border-radius: 16px;
+    min-width: 136px;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
     padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color .15s;
   }
+  .index-card.active { border-color: var(--text); }
 
-  .fx-card .fx-name {
-    font-size: 11.5px;
+  .index-card .ic-name {
+    font-size: 12px;
     color: var(--text-dim);
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    display: flex; align-items: center; gap: 5px;
     margin-bottom: 4px;
   }
-
-  .fx-card .fx-rate {
+  .ic-badge {
+    font-size: 9px;
     font-family: var(--mono);
-    font-size: 16.5px;
-    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 5px;
+  }
+  .ic-badge.realtime { background: rgba(21,179,113,0.12); color: var(--realtime); }
+  .ic-badge.delayed { background: var(--card-soft); color: var(--text-faint); }
+
+  .index-card .ic-price {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 700;
     letter-spacing: -0.02em;
   }
-
-  .fx-card .fx-change {
+  .index-card .ic-change {
     font-family: var(--mono);
     font-size: 11.5px;
     margin-top: 2px;
-    display: flex;
-    align-items: center;
-    gap: 3px;
   }
-  .fx-change.up { color: var(--up); }
-  .fx-change.down { color: var(--down); }
-  .fx-change.flat { color: var(--text-faint); }
+  .ic-change.up { color: var(--up); }
+  .ic-change.down { color: var(--down); }
+  .ic-change.flat { color: var(--text-faint); }
 
-  .fx-skeleton {
-    height: 66px;
-    border-radius: 16px;
-    background: linear-gradient(90deg, var(--bg-elev) 25%, var(--bg-elev-strong) 37%, var(--bg-elev) 63%);
+  .index-skeleton {
+    min-width: 136px; height: 70px;
+    border-radius: 14px;
+    background: linear-gradient(90deg, var(--card-soft) 25%, #EFF0F4 37%, var(--card-soft) 63%);
     background-size: 400% 100%;
     animation: shimmer 1.4s ease infinite;
-    min-width: 128px;
-    flex: 0 0 auto;
   }
   @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
 
-  .fx-error {
-    font-size: 12px;
+  /* ===== 메인 레이아웃 ===== */
+  .layout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 14px;
+  }
+
+  .chart-col, .news-col { display: flex; flex-direction: column; gap: 14px; }
+
+  .card-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+
+  /* 차트 */
+  .chart-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chart-head .ch-title { display: flex; align-items: center; gap: 8px; }
+  .chart-head h2 { font-size: 16px; margin: 0; font-weight: 800; }
+  .chart-head .ch-price { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+  .chart-head .ch-change { font-family: var(--mono); font-size: 12.5px; }
+
+  .chart-svg-wrap { width: 100%; height: 220px; }
+  .chart-svg-wrap svg { width: 100%; height: 100%; display: block; }
+
+  .chart-foot {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
     color: var(--text-faint);
-    padding: 0 18px;
+    font-family: var(--mono);
+    margin-top: 6px;
   }
 
-  /* ===== 카테고리 칩 ===== */
-  .cat-section {
-    position: sticky;
-    top: 0;
-    z-index: 20;
+  .chart-empty {
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: 13px;
+    text-align: center;
+    padding: 0 20px;
   }
 
+  /* 헤드라인 박스 */
+  .headline-box .hb-top {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
+  }
+  .headline-box .hb-main {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.5;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .headline-box .hb-main:hover { color: var(--accent); }
+  .headline-box ul {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .headline-box li a {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    display: block;
+    line-height: 1.45;
+  }
+  .headline-box li a:hover { color: var(--text); }
+  .headline-box li a::before { content: "· "; color: var(--text-faint); }
+
+  /* 카테고리 칩 */
   .cat-scroll {
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    padding: 14px 18px;
     scroll-snap-type: x proximity;
   }
   .cat-scroll::-webkit-scrollbar { display: none; }
@@ -223,179 +272,152 @@
   .chip {
     flex: 0 0 auto;
     scroll-snap-align: start;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 9px 14px;
+    padding: 8px 13px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--bg-elev);
+    background: var(--card-soft);
     color: var(--text-dim);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
-    transition: all .15s;
   }
   .chip.active {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    border-color: transparent;
+    background: var(--text);
+    border-color: var(--text);
     color: #fff;
-    font-weight: 600;
+    font-weight: 700;
   }
-  .chip.manage-chip {
-    color: var(--text-faint);
-    font-size: 16px;
-    padding: 9px 12px;
+  .chip.manage-chip { color: var(--text-faint); font-size: 15px; padding: 8px 11px; }
+
+  /* 환율 줄 */
+  .fx-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
   }
+  .fx-strip::-webkit-scrollbar { display: none; }
+  .fx-chip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 11px;
+    border-radius: 10px;
+    background: var(--card-soft);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+  .fx-chip .fx-tick.up { color: var(--up); }
+  .fx-chip .fx-tick.down { color: var(--down); }
+  .fx-chip .fx-tick.flat { color: var(--text-faint); }
 
-  /* ===== 뉴스 피드 ===== */
-  .feed { padding: 4px 18px 12px; display: flex; flex-direction: column; gap: 10px; }
-
-  .feed-head {
+  /* 실시간 속보 (사이드/하단) */
+  .news-col-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 2px 2px;
+    margin-bottom: 4px;
   }
-  .feed-head .label {
-    font-size: 12px;
-    color: var(--text-faint);
-    font-family: var(--mono);
+  .news-col-head h2 { font-size: 15px; margin: 0; font-weight: 800; }
+  .news-col-head .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--realtime);
+    display: inline-block;
+    margin-right: 5px;
+    animation: blink 1.8s ease-in-out infinite;
   }
 
-  .news-card {
-    background: linear-gradient(180deg, var(--bg-elev-strong), var(--bg-elev));
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 16px;
-    text-decoration: none;
+  .news-list { display: flex; flex-direction: column; }
+  .news-row {
     display: block;
-    transition: transform .15s, border-color .15s;
+    padding: 11px 2px;
+    border-bottom: 1px solid var(--border);
   }
-  .news-card:active { transform: scale(0.98); }
-
-  .news-card .headline {
-    font-size: 15px;
-    line-height: 1.5;
-    font-weight: 500;
+  .news-row:last-child { border-bottom: none; }
+  .news-row .nr-title {
+    font-size: 13.5px;
+    line-height: 1.45;
     color: var(--text);
-    margin-bottom: 10px;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    margin-bottom: 5px;
   }
-
-  .news-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .src-tag {
+  .news-row:hover .nr-title { color: var(--accent); }
+  .news-row .nr-meta {
+    display: flex; align-items: center; gap: 6px;
     font-size: 10.5px;
-    font-family: var(--mono);
-    padding: 2px 7px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-  }
-  .src-tag.both {
-    color: #CFE0FF;
-    border-color: rgba(109,108,255,0.4);
-    background: rgba(109,108,255,0.12);
-  }
-
-  .news-time {
-    font-size: 11.5px;
     color: var(--text-faint);
     font-family: var(--mono);
-    margin-left: auto;
   }
+  .nr-tag {
+    padding: 1px 5px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+  }
+  .nr-tag.both { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
 
-  .news-card.skeleton {
-    height: 96px;
-    background: linear-gradient(90deg, var(--bg-elev) 25%, var(--bg-elev-strong) 37%, var(--bg-elev) 63%);
+  .skeleton-row {
+    height: 58px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, var(--card-soft) 25%, #EFF0F4 37%, var(--card-soft) 63%);
     background-size: 400% 100%;
     animation: shimmer 1.4s ease infinite;
   }
 
   .empty-state, .error-state {
     text-align: center;
-    padding: 48px 20px;
+    padding: 30px 10px;
     color: var(--text-faint);
-    font-size: 13px;
+    font-size: 12.5px;
   }
   .error-state { color: var(--up); }
 
   /* ===== 바텀시트 ===== */
   .sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(2px);
-    z-index: 50;
-    opacity: 0;
-    pointer-events: none;
+    position: fixed; inset: 0;
+    background: rgba(10,12,20,0.45);
+    z-index: 50; opacity: 0; pointer-events: none;
     transition: opacity .25s;
   }
   .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
-
   .sheet {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
+    position: fixed; left: 0; right: 0; bottom: 0;
     z-index: 51;
-    max-width: 640px;
-    margin: 0 auto;
-    background: #12162A;
-    border: 1px solid var(--border);
-    border-bottom: none;
-    border-radius: 24px 24px 0 0;
+    max-width: 640px; margin: 0 auto;
+    background: #fff;
+    border-radius: 22px 22px 0 0;
     padding: 10px 20px calc(24px + var(--safe-bottom));
     transform: translateY(100%);
     transition: transform .3s cubic-bezier(.32,.72,0,1);
     max-height: 80vh;
     overflow-y: auto;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
   }
   .sheet.open { transform: translateY(0); }
-
-  .sheet-handle {
-    width: 36px; height: 4px;
-    background: rgba(255,255,255,0.18);
-    border-radius: 2px;
-    margin: 6px auto 16px;
-  }
-
-  .sheet h2 {
-    font-size: 17px;
-    margin: 0 0 14px;
-  }
-
+  .sheet-handle { width: 36px; height: 4px; background: #E3E5EA; border-radius: 2px; margin: 6px auto 16px; }
+  .sheet h2 { font-size: 17px; margin: 0 0 14px; }
   .sheet-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
-
   .sheet-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
     padding: 12px 14px;
-    background: var(--bg-elev);
+    background: var(--card-soft);
     border: 1px solid var(--border);
     border-radius: 14px;
   }
   .sheet-row .name { font-size: 14px; }
   .sheet-row .row-actions { display: flex; gap: 4px; }
-  .sheet-row button {
-    background: none; border: none; color: var(--text-faint);
-    font-size: 13px; padding: 4px 8px; cursor: pointer;
-  }
+  .sheet-row button { background: none; border: none; color: var(--text-dim); font-size: 13px; padding: 4px 8px; cursor: pointer; }
   .sheet-row button:hover { color: var(--text); }
-
   .field-label { font-size: 12.5px; color: var(--text-dim); margin: 14px 0 6px; }
   .sheet input {
     width: 100%;
-    background: rgba(255,255,255,0.05);
+    background: var(--card-soft);
     border: 1px solid var(--border);
     color: var(--text);
     font-family: var(--kr);
@@ -403,50 +425,37 @@
     padding: 12px 14px;
     border-radius: 12px;
   }
-
   .sheet-primary-btn {
-    width: 100%;
-    margin-top: 16px;
-    padding: 14px;
-    border-radius: 14px;
-    border: none;
+    width: 100%; margin-top: 16px; padding: 14px;
+    border-radius: 14px; border: none;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    color: #fff;
-    font-size: 14.5px;
-    font-weight: 600;
-    cursor: pointer;
+    color: #fff; font-size: 14.5px; font-weight: 700; cursor: pointer;
   }
 
   /* ===== 설치 배너 ===== */
   .install-banner {
-    margin: 4px 18px 0;
+    margin: 10px 16px 0;
     padding: 12px 14px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(109,108,255,0.18), rgba(155,108,255,0.1));
-    border: 1px solid rgba(109,108,255,0.35);
+    border-radius: 14px;
+    background: var(--accent-soft);
+    border: 1px solid #D9D8FF;
     display: none;
     align-items: center;
     gap: 10px;
   }
   .install-banner.show { display: flex; }
-  .install-banner .txt { flex: 1; font-size: 12.5px; color: #E4E6FF; line-height: 1.4; }
+  .install-banner .txt { flex: 1; font-size: 12.5px; color: #3A2FA0; line-height: 1.4; }
   .install-banner button {
-    background: #fff;
-    color: #1A1035;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 10px;
-    font-size: 12.5px;
-    font-weight: 700;
-    cursor: pointer;
-    white-space: nowrap;
+    background: var(--text); color: #fff; border: none;
+    padding: 8px 12px; border-radius: 10px;
+    font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
   }
-  .install-banner .close-x {
-    background: none; color: var(--text-faint); font-size: 16px; padding: 2px 4px;
-  }
+  .install-banner .close-x { background: none; color: #8A85D0; font-size: 16px; padding: 2px 4px; }
 
-  @media (min-width: 720px) {
-    .app { max-width: 760px; }
+  @media (min-width: 880px) {
+    .layout { flex-direction: row; align-items: flex-start; }
+    .chart-col { flex: 1 1 auto; min-width: 0; }
+    .news-col { width: 320px; flex: 0 0 320px; position: sticky; top: 76px; }
   }
 </style>
 </head>
@@ -454,17 +463,15 @@
 
 <div class="app">
   <header class="app-header">
-    <div class="app-header-row">
-      <div class="brand">
-        <span class="dot"></span>
-        <h1>경제 뉴스 시세판</h1>
-      </div>
-      <div class="header-actions">
-        <button class="icon-btn" id="manageBtn" title="카테고리 관리">☰</button>
-        <button class="icon-btn" id="refreshBtn" title="새로고침">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-        </button>
-      </div>
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>경제 뉴스 시세판</h1>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="manageBtn" title="카테고리 관리">☰</button>
+      <button class="icon-btn" id="refreshBtn" title="새로고침">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
     </div>
     <div class="refresh-track"><div class="refresh-fill" id="refreshFill"></div></div>
   </header>
@@ -475,29 +482,69 @@
     <button class="close-x" id="installClose">✕</button>
   </div>
 
-  <section class="fx-section">
-    <div class="fx-scroll" id="fxScroll">
-      <div class="fx-skeleton"></div>
-      <div class="fx-skeleton"></div>
-      <div class="fx-skeleton"></div>
+  <div class="main-pad">
+    <div class="index-scroll" id="indexScroll">
+      <div class="index-skeleton"></div>
+      <div class="index-skeleton"></div>
+      <div class="index-skeleton"></div>
+      <div class="index-skeleton"></div>
+      <div class="index-skeleton"></div>
     </div>
-  </section>
 
-  <section class="cat-section">
-    <div class="cat-scroll" id="catScroll"></div>
-  </section>
+    <div class="layout">
+      <div class="chart-col">
+        <div class="card-block">
+          <div class="chart-head">
+            <div class="ch-title">
+              <h2 id="chartName">코스피</h2>
+              <span class="ic-badge realtime" id="chartBadge">실시간</span>
+            </div>
+            <div>
+              <span class="ch-price" id="chartPrice">-</span>
+              <span class="ch-change" id="chartChange"></span>
+            </div>
+          </div>
+          <div class="chart-svg-wrap" id="chartWrap">
+            <div class="chart-empty">데이터를 모으고 있어요</div>
+          </div>
+          <div class="chart-foot">
+            <span id="chartLow">최저 -</span>
+            <span id="chartCaption">접속한 뒤부터의 흐름이에요</span>
+            <span id="chartHigh">최고 -</span>
+          </div>
+        </div>
 
-  <section class="feed">
-    <div class="feed-head">
-      <span class="label" id="feedLabel">LOADING</span>
-      <span class="label" id="feedTime"></span>
+        <div class="card-block headline-box" id="headlineBox">
+          <div class="hb-top">최신 헤드라인</div>
+          <div class="empty-state">카테고리를 선택하면 헤드라인이 보여요</div>
+        </div>
+
+        <div class="card-block">
+          <div class="cat-scroll" id="catScroll"></div>
+        </div>
+
+        <div class="card-block">
+          <div class="fx-strip" id="fxStrip">
+            <span class="fx-chip">환율 불러오는 중…</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="news-col">
+        <div class="card-block">
+          <div class="news-col-head">
+            <h2><span class="live-dot"></span>실시간 속보</h2>
+            <span id="sideTime" style="font-size:11px;color:var(--text-faint);font-family:var(--mono)"></span>
+          </div>
+          <div class="news-list" id="sideNewsList">
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+      </aside>
     </div>
-    <div id="feedList">
-      <div class="news-card skeleton"></div>
-      <div class="news-card skeleton"></div>
-      <div class="news-card skeleton"></div>
-    </div>
-  </section>
+  </div>
 </div>
 
 <!-- 카테고리 관리 바텀시트 -->
@@ -520,71 +567,39 @@
 const STORAGE_KEY = "newsDashboardCategoriesV2";
 const OLD_STORAGE_KEY = "newsDashboardCategories";
 const REFRESH_INTERVAL_MS = 120000; // 2분
+const HISTORY_KEY_PREFIX = "indexHistory_";
 
 const DEFAULT_CATEGORIES = [
-  { id: "kospi",       code: "KR-EQ",  name: "국내증시",  query: "코스피 지수 마감" },
-  { id: "us",          code: "US-EQ",  name: "해외증시",  query: "나스닥 다우존스 마감" },
-  { id: "rate",        code: "RATE",   name: "금리",       query: "한국은행 기준금리" },
-  { id: "realestate",  code: "R-EST",  name: "부동산",     query: "아파트 매매가 시세" },
+  { id: "kospi",       name: "국내증시",  query: "코스피 지수 마감" },
+  { id: "us",          name: "해외증시",  query: "나스닥 다우존스 마감" },
+  { id: "rate",        name: "금리",       query: "한국은행 기준금리" },
+  { id: "realestate",  name: "부동산",     query: "아파트 매매가 시세" },
 ];
 
 function loadCategories() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-    // 구버전 데이터 마이그레이션
     const old = localStorage.getItem(OLD_STORAGE_KEY);
     if (old) return JSON.parse(old);
   } catch (e) {}
   return DEFAULT_CATEGORIES.slice();
 }
-
-function saveCategories(cats) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
-}
+function saveCategories(cats) { localStorage.setItem(STORAGE_KEY, JSON.stringify(cats)); }
 
 let categories = loadCategories();
-let activeId = categories.length ? categories[0].id : null;
+let activeCatId = categories.length ? categories[0].id : null;
 let editingId = null;
-let refreshTimer = null;
-let refreshDeadline = 0;
 
 const catScroll = document.getElementById("catScroll");
-const feedList = document.getElementById("feedList");
-const feedLabel = document.getElementById("feedLabel");
-const feedTime = document.getElementById("feedTime");
+const sideNewsList = document.getElementById("sideNewsList");
+const sideTime = document.getElementById("sideTime");
+const headlineBox = document.getElementById("headlineBox");
 const refreshFill = document.getElementById("refreshFill");
 const refreshBtn = document.getElementById("refreshBtn");
-const fxScroll = document.getElementById("fxScroll");
+const fxStrip = document.getElementById("fxStrip");
+const indexScroll = document.getElementById("indexScroll");
 
-function codeFromName(name) {
-  return name.slice(0, 4).toUpperCase();
-}
-
-/* ---------- 카테고리 칩 ---------- */
-function renderChips() {
-  catScroll.innerHTML = "";
-  categories.forEach((cat) => {
-    const chip = document.createElement("div");
-    chip.className = "chip" + (cat.id === activeId ? " active" : "");
-    chip.textContent = cat.name;
-    chip.addEventListener("click", () => selectCategory(cat.id));
-    catScroll.appendChild(chip);
-  });
-  const manageChip = document.createElement("div");
-  manageChip.className = "chip manage-chip";
-  manageChip.textContent = "+";
-  manageChip.addEventListener("click", openManageSheet);
-  catScroll.appendChild(manageChip);
-}
-
-function selectCategory(id) {
-  activeId = id;
-  renderChips();
-  loadFeed(id);
-}
-
-/* ---------- 뉴스 피드 ---------- */
 function timeAgo(dateStr) {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "";
@@ -597,132 +612,278 @@ function timeAgo(dateStr) {
   return d.toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
 }
 
-function renderFeed(data) {
-  feedList.innerHTML = "";
+/* ================= 카테고리 칩 + 뉴스(헤드라인/속보) ================= */
+function renderChips() {
+  catScroll.innerHTML = "";
+  categories.forEach((cat) => {
+    const chip = document.createElement("div");
+    chip.className = "chip" + (cat.id === activeCatId ? " active" : "");
+    chip.textContent = cat.name;
+    chip.addEventListener("click", () => selectCategory(cat.id));
+    catScroll.appendChild(chip);
+  });
+  const manageChip = document.createElement("div");
+  manageChip.className = "chip manage-chip";
+  manageChip.textContent = "+";
+  manageChip.addEventListener("click", openManageSheet);
+  catScroll.appendChild(manageChip);
+}
+
+function selectCategory(id) {
+  activeCatId = id;
+  renderChips();
+  loadNews(id);
+}
+
+function renderHeadline(items) {
+  if (!items || items.length === 0) {
+    headlineBox.innerHTML = `<div class="hb-top">최신 헤드라인</div><div class="empty-state">기사를 찾지 못했어요</div>`;
+    return;
+  }
+  const top = items[0];
+  const rest = items.slice(1, 4);
+  headlineBox.innerHTML = `
+    <div class="hb-top">최신 헤드라인</div>
+    <a class="hb-main" href="${top.link}" target="_blank" rel="noopener noreferrer">${top.title}</a>
+    <ul>
+      ${rest.map((it) => `<li><a href="${it.link}" target="_blank" rel="noopener noreferrer">${it.title}</a></li>`).join("")}
+    </ul>
+  `;
+}
+
+function renderSideNews(data) {
+  sideNewsList.innerHTML = "";
   const items = data.items || [];
 
   if (items.length === 0) {
     const msg = (data.errors && data.errors.length) ? data.errors.join(" / ") : "가져온 뉴스가 없어요";
-    const el = document.createElement("div");
-    el.className = (data.errors && data.errors.length) ? "error-state" : "empty-state";
-    el.textContent = msg;
-    feedList.appendChild(el);
+    sideNewsList.innerHTML = `<div class="${(data.errors && data.errors.length) ? 'error-state' : 'empty-state'}">${msg}</div>`;
     return;
   }
 
   items.forEach((item) => {
     const a = document.createElement("a");
-    a.className = "news-card";
+    a.className = "news-row";
     a.href = item.link;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
-
     const bothSources = item.sources.length > 1;
     const tagText = bothSources ? "NAVER+GOOGLE" : (item.sources[0] === "네이버뉴스" ? "NAVER" : "GOOGLE");
-
     a.innerHTML = `
-      <div class="headline">${item.title}</div>
-      <div class="news-meta">
-        <span class="src-tag ${bothSources ? "both" : ""}">${tagText}</span>
-        ${item.press ? `<span class="src-tag">${item.press}</span>` : ""}
-        <span class="news-time">${timeAgo(item.pubDate)}</span>
+      <div class="nr-title">${item.title}</div>
+      <div class="nr-meta">
+        <span class="nr-tag ${bothSources ? 'both' : ''}">${tagText}</span>
+        ${item.press ? `<span>${item.press}</span>` : ""}
+        <span style="margin-left:auto">${timeAgo(item.pubDate)}</span>
       </div>
     `;
-    feedList.appendChild(a);
+    sideNewsList.appendChild(a);
   });
 }
 
-async function loadFeed(id) {
+async function loadNews(id) {
   const cat = categories.find((c) => c.id === id);
   if (!cat) return;
 
-  feedLabel.textContent = cat.name.toUpperCase();
-  feedList.innerHTML = `
-    <div class="news-card skeleton"></div>
-    <div class="news-card skeleton"></div>
-    <div class="news-card skeleton"></div>
-  `;
+  sideNewsList.innerHTML = `<div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div>`;
 
   try {
     const res = await fetch(`/api/news?q=${encodeURIComponent(cat.query)}`);
     const data = await res.json();
-    if (id === activeId) {
-      renderFeed(data);
-      feedTime.textContent = new Date(data.fetchedAt || Date.now()).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    if (id === activeCatId) {
+      renderSideNews(data);
+      renderHeadline(data.items);
+      sideTime.textContent = new Date(data.fetchedAt || Date.now()).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
     }
   } catch (err) {
-    if (id === activeId) {
-      feedList.innerHTML = `<div class="error-state">불러오기 실패: ${err.message}</div>`;
+    if (id === activeCatId) {
+      sideNewsList.innerHTML = `<div class="error-state">불러오기 실패: ${err.message}</div>`;
     }
   }
 }
 
-/* ---------- 환율 티커 ---------- */
+/* ================= 환율 줄 ================= */
+const prevFxRates = {};
+
 async function loadFx() {
   try {
     const res = await fetch("/api/fx");
     const data = await res.json();
     renderFx(data);
   } catch (err) {
-    fxScroll.innerHTML = `<div class="fx-error">환율 정보를 불러오지 못했어요</div>`;
+    fxStrip.innerHTML = `<span class="fx-chip">환율 정보를 불러오지 못했어요</span>`;
   }
 }
 
-// 네이버 쪽 API가 전일대비 변동값을 안 주기 때문에, 직전 폴링 값과 비교해서
-// 화면에서 자체적으로 상승/하락 틱을 표시해요 (실제 증권 시세판의 "틱" 느낌).
-const prevFxRates = {};
-
 function renderFx(data) {
-  fxScroll.innerHTML = "";
+  fxStrip.innerHTML = "";
   const items = data.items || [];
-
   if (items.length === 0) {
-    fxScroll.innerHTML = `<div class="fx-error">${(data.errors || []).join(" / ") || "환율 정보가 없어요"}</div>`;
+    fxStrip.innerHTML = `<span class="fx-chip">${(data.errors || []).join(" / ") || "환율 정보가 없어요"}</span>`;
     return;
   }
-
   items.forEach((fx) => {
-    const card = document.createElement("div");
-    card.className = "fx-card";
-
     const prev = prevFxRates[fx.code];
     let direction = "flat";
-    let diffText = "최초 조회";
     if (typeof prev === "number") {
       const diff = fx.rawRate - prev;
       if (diff > 0.001) direction = "up";
       else if (diff < -0.001) direction = "down";
-      diffText = direction === "flat" ? "변동 없음" : Math.abs(diff).toFixed(2);
     }
     prevFxRates[fx.code] = fx.rawRate;
-
     const arrow = direction === "up" ? "▲" : direction === "down" ? "▼" : "·";
 
-    card.innerHTML = `
-      <div class="fx-name">${fx.flag || ""} ${fx.name} · ${fx.unit}</div>
-      <div class="fx-rate">${fx.rate}</div>
-      <div class="fx-change ${direction}">${arrow} ${diffText}</div>
-    `;
-    fxScroll.appendChild(card);
+    const chip = document.createElement("span");
+    chip.className = "fx-chip";
+    chip.innerHTML = `${fx.flag || ""} ${fx.name} <b>${fx.rate}</b> <span class="fx-tick ${direction}">${arrow}</span>`;
+    fxStrip.appendChild(chip);
   });
+}
 
-  if (data.errors && data.errors.length) {
-    const errEl = document.createElement("div");
-    errEl.className = "fx-error";
-    errEl.textContent = data.errors.join(" / ");
-    fxScroll.appendChild(errEl);
+/* ================= 지수 카드 + 차트 ================= */
+let indexItems = [];
+let activeIndexCode = null;
+
+function todayKey() {
+  const d = new Date();
+  return `${HISTORY_KEY_PREFIX}${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(todayKey());
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveHistory(hist) {
+  try { localStorage.setItem(todayKey(), JSON.stringify(hist)); } catch (e) {}
+}
+let indexHistory = loadHistory();
+
+function appendHistoryPoint(code, price) {
+  if (!indexHistory[code]) indexHistory[code] = [];
+  const arr = indexHistory[code];
+  const last = arr[arr.length - 1];
+  if (!last || last.p !== price) {
+    arr.push({ t: Date.now(), p: price });
+  }
+  if (arr.length > 300) arr.shift();
+  saveHistory(indexHistory);
+}
+
+function renderIndexCards() {
+  indexScroll.innerHTML = "";
+  indexItems.forEach((idx) => {
+    const card = document.createElement("div");
+    card.className = "index-card" + (idx.code === activeIndexCode ? " active" : "");
+    const badgeClass = idx.realtime ? "realtime" : "delayed";
+    const badgeText = idx.realtime ? "실시간" : "지연";
+    const changeSign = idx.change > 0 ? "+" : "";
+    card.innerHTML = `
+      <div class="ic-name">${idx.name} <span class="ic-badge ${badgeClass}">${badgeText}</span></div>
+      <div class="ic-price">${idx.price.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}</div>
+      <div class="ic-change ${idx.direction}">${changeSign}${idx.change.toFixed(2)} (${changeSign}${idx.changePercent.toFixed(2)}%)</div>
+    `;
+    card.addEventListener("click", () => selectIndex(idx.code));
+    indexScroll.appendChild(card);
+  });
+}
+
+function selectIndex(code) {
+  activeIndexCode = code;
+  renderIndexCards();
+  renderChart();
+}
+
+function renderChart() {
+  const idx = indexItems.find((i) => i.code === activeIndexCode);
+  const chartWrap = document.getElementById("chartWrap");
+  const chartName = document.getElementById("chartName");
+  const chartBadge = document.getElementById("chartBadge");
+  const chartPrice = document.getElementById("chartPrice");
+  const chartChange = document.getElementById("chartChange");
+  const chartLow = document.getElementById("chartLow");
+  const chartHigh = document.getElementById("chartHigh");
+
+  if (!idx) return;
+
+  chartName.textContent = idx.name;
+  chartBadge.className = "ic-badge " + (idx.realtime ? "realtime" : "delayed");
+  chartBadge.textContent = idx.realtime ? "실시간" : "15~20분 지연";
+  chartPrice.textContent = idx.price.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+  const sign = idx.change > 0 ? "+" : "";
+  chartChange.textContent = `${sign}${idx.change.toFixed(2)} (${sign}${idx.changePercent.toFixed(2)}%)`;
+  chartChange.className = "ch-change " + idx.direction;
+  chartChange.style.color = idx.direction === "up" ? "var(--up)" : idx.direction === "down" ? "var(--down)" : "var(--text-faint)";
+
+  const points = indexHistory[idx.code] || [];
+
+  if (points.length < 2) {
+    chartWrap.innerHTML = `<div class="chart-empty">접속해 있는 동안 값이 쌓이면 여기에 그래프가 그려져요<br/>(지금은 ${points.length}개 수집됨)</div>`;
+    chartLow.textContent = "최저 -";
+    chartHigh.textContent = "최고 -";
+    return;
+  }
+
+  const W = 600, H = 220, PAD = 10;
+  const prices = points.map((p) => p.p);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+
+  const toXY = (p, i) => {
+    const x = PAD + (i / (points.length - 1)) * (W - PAD * 2);
+    const y = H - PAD - ((p.p - min) / range) * (H - PAD * 2);
+    return [x, y];
+  };
+
+  const coords = points.map(toXY);
+  const linePath = coords.map((c, i) => (i === 0 ? `M${c[0]},${c[1]}` : `L${c[0]},${c[1]}`)).join(" ");
+  const areaPath = `${linePath} L${coords[coords.length-1][0]},${H-PAD} L${coords[0][0]},${H-PAD} Z`;
+
+  const lineColor = idx.direction === "down" ? "var(--down)" : "var(--up)";
+  const gradId = "grad-" + idx.code.replace(/[^a-zA-Z0-9]/g, "");
+
+  chartWrap.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaPath}" fill="url(#${gradId})" />
+      <path d="${linePath}" fill="none" stroke="${lineColor}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${coords[coords.length-1][0]}" cy="${coords[coords.length-1][1]}" r="3.5" fill="${lineColor}"/>
+    </svg>
+  `;
+
+  chartLow.textContent = `최저 ${min.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}`;
+  chartHigh.textContent = `최고 ${max.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}`;
+}
+
+async function loadIndices() {
+  try {
+    const res = await fetch("/api/indices");
+    const data = await res.json();
+    indexItems = data.items || [];
+    indexItems.forEach((idx) => appendHistoryPoint(idx.code, idx.price));
+    if (!activeIndexCode && indexItems.length) activeIndexCode = indexItems[0].code;
+    renderIndexCards();
+    renderChart();
+  } catch (err) {
+    indexScroll.innerHTML = `<span style="font-size:12px;color:var(--text-faint)">지수 정보를 불러오지 못했어요</span>`;
   }
 }
 
-/* ---------- 자동 새로고침 ---------- */
+/* ================= 자동 새로고침 ================= */
 function refreshAll() {
   loadFx();
-  if (activeId) loadFeed(activeId);
+  loadIndices();
+  if (activeCatId) loadNews(activeCatId);
   resetRefreshTimer();
 }
-
 function resetRefreshTimer() {
-  refreshDeadline = Date.now() + REFRESH_INTERVAL_MS;
   refreshFill.style.transition = "none";
   refreshFill.style.width = "0%";
   requestAnimationFrame(() => {
@@ -730,14 +891,13 @@ function resetRefreshTimer() {
     refreshFill.style.width = "100%";
   });
 }
-
 refreshBtn.addEventListener("click", () => {
   refreshBtn.classList.add("spinning");
   refreshAll();
   setTimeout(() => refreshBtn.classList.remove("spinning"), 800);
 });
 
-/* ---------- 바텀시트: 카테고리 관리 ---------- */
+/* ================= 바텀시트: 카테고리 관리 ================= */
 const sheetBackdrop = document.getElementById("sheetBackdrop");
 const manageSheet = document.getElementById("manageSheet");
 const sheetCatList = document.getElementById("sheetCatList");
@@ -759,13 +919,8 @@ function renderSheetList() {
     `;
     sheetCatList.appendChild(row);
   });
-
-  sheetCatList.querySelectorAll('button[data-act="edit"]').forEach((btn) => {
-    btn.addEventListener("click", () => startEdit(btn.dataset.id));
-  });
-  sheetCatList.querySelectorAll('button[data-act="delete"]').forEach((btn) => {
-    btn.addEventListener("click", () => deleteCategory(btn.dataset.id));
-  });
+  sheetCatList.querySelectorAll('button[data-act="edit"]').forEach((btn) => btn.addEventListener("click", () => startEdit(btn.dataset.id)));
+  sheetCatList.querySelectorAll('button[data-act="delete"]').forEach((btn) => btn.addEventListener("click", () => deleteCategory(btn.dataset.id)));
 }
 
 function openManageSheet() {
@@ -774,12 +929,10 @@ function openManageSheet() {
   sheetBackdrop.classList.add("open");
   manageSheet.classList.add("open");
 }
-
 function closeManageSheet() {
   sheetBackdrop.classList.remove("open");
   manageSheet.classList.remove("open");
 }
-
 sheetBackdrop.addEventListener("click", closeManageSheet);
 document.getElementById("manageBtn").addEventListener("click", openManageSheet);
 
@@ -789,7 +942,6 @@ function resetForm() {
   catQueryInput.value = "";
   catSubmitBtn.textContent = "추가하기";
 }
-
 function startEdit(id) {
   const cat = categories.find((c) => c.id === id);
   if (!cat) return;
@@ -799,58 +951,48 @@ function startEdit(id) {
   catSubmitBtn.textContent = "저장하기";
   catNameInput.focus();
 }
-
 function deleteCategory(id) {
   categories = categories.filter((c) => c.id !== id);
   saveCategories(categories);
   renderSheetList();
   renderChips();
-  if (activeId === id) {
-    activeId = categories.length ? categories[0].id : null;
-    if (activeId) loadFeed(activeId);
-    else feedList.innerHTML = `<div class="empty-state">카테고리를 추가해보세요</div>`;
+  if (activeCatId === id) {
+    activeCatId = categories.length ? categories[0].id : null;
+    if (activeCatId) loadNews(activeCatId);
+    else { sideNewsList.innerHTML = `<div class="empty-state">카테고리를 추가해보세요</div>`; headlineBox.innerHTML = `<div class="hb-top">최신 헤드라인</div><div class="empty-state">카테고리를 추가해보세요</div>`; }
   }
 }
-
 catSubmitBtn.addEventListener("click", () => {
   const name = catNameInput.value.trim();
   const query = catQueryInput.value.trim();
-  if (!name || !query) {
-    alert("카테고리 이름과 검색어를 모두 입력해주세요.");
-    return;
-  }
+  if (!name || !query) { alert("카테고리 이름과 검색어를 모두 입력해주세요."); return; }
 
   if (editingId) {
     const cat = categories.find((c) => c.id === editingId);
-    if (cat) {
-      cat.name = name;
-      cat.query = query;
-      cat.code = codeFromName(name);
-    }
+    if (cat) { cat.name = name; cat.query = query; }
     saveCategories(categories);
     resetForm();
     renderSheetList();
     renderChips();
-    if (activeId === editingId) loadFeed(activeId);
+    if (activeCatId === editingId) loadNews(activeCatId);
     return;
   }
 
   const id = "cat_" + Date.now();
-  categories.push({ id, name, query, code: codeFromName(name) });
+  categories.push({ id, name, query });
   saveCategories(categories);
   resetForm();
   renderSheetList();
   renderChips();
-  if (!activeId) selectCategory(id);
+  if (!activeCatId) selectCategory(id);
 });
 
-/* ---------- PWA 설치 배너 ---------- */
+/* ================= PWA 설치 배너 ================= */
 let deferredInstallPrompt = null;
 const installBanner = document.getElementById("installBanner");
 const installBtn = document.getElementById("installBtn");
 const installClose = document.getElementById("installClose");
 const installText = document.getElementById("installText");
-
 const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const dismissed = localStorage.getItem("installBannerDismissed") === "1";
@@ -858,17 +1000,13 @@ const dismissed = localStorage.getItem("installBannerDismissed") === "1";
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  if (!isStandalone && !dismissed) {
-    installBanner.classList.add("show");
-  }
+  if (!isStandalone && !dismissed) installBanner.classList.add("show");
 });
-
 if (isIOS && !isStandalone && !dismissed) {
   installText.textContent = "공유 버튼 → \"홈 화면에 추가\"를 누르면 앱처럼 쓸 수 있어요";
   installBtn.style.display = "none";
   installBanner.classList.add("show");
 }
-
 installBtn.addEventListener("click", async () => {
   if (!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
@@ -876,25 +1014,23 @@ installBtn.addEventListener("click", async () => {
   deferredInstallPrompt = null;
   installBanner.classList.remove("show");
 });
-
 installClose.addEventListener("click", () => {
   installBanner.classList.remove("show");
   localStorage.setItem("installBannerDismissed", "1");
 });
 
-/* ---------- 서비스워커 등록 ---------- */
+/* ================= 서비스워커 ================= */
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  });
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 }
 
-/* ---------- 초기 구동 ---------- */
+/* ================= 초기 구동 ================= */
 renderChips();
 loadFx();
-if (activeId) loadFeed(activeId);
+loadIndices();
+if (activeCatId) loadNews(activeCatId);
 resetRefreshTimer();
-refreshTimer = setInterval(refreshAll, REFRESH_INTERVAL_MS);
+setInterval(refreshAll, REFRESH_INTERVAL_MS);
 </script>
 
 </body>
