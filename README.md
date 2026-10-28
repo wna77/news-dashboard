@@ -37,12 +37,24 @@ package.json
 api/news.js
 api/fx.js
 api/indices.js
+api/ranking.js
 icons/icon-192.png
 icons/icon-512.png
 icons/icon-maskable-512.png
 icons/apple-touch-icon.png
 icons/favicon-32.png
 ```
+
+## 실시간 랭킹(국내 주식)은 어디서 가져오나요
+
+차트 아래 "실시간 랭킹" 카드는 네이버 금융의 국내증시 랭킹 페이지(거래대금상위/상승/하락/시가총액/거래량상위/인기종목)를
+그대로 가져와서 보여줘요 (`api/ranking.js`). 이 기능을 위해 `package.json`에 `iconv-lite`, `cheerio` 패키지가
+새로 추가됐으니, GitHub에 `package.json` 파일도 꼭 같이 업데이트해서 올려주세요 (Vercel이 배포할 때 자동으로 설치해요).
+
+이 부분도 네이버가 페이지 구조를 바꾸면 깨질 수 있어서, 배포 후 탭을 한두 개 눌러서 숫자가 뜨는지 확인해주시면 좋아요.
+안 뜨면 "데이터를 불러오지 못했어요" 같은 문구만 보이고 나머지 기능은 정상 작동해요.
+
+(다음 단계로 미국 주식/국내 ETF 랭킹도 추가할 예정이에요. 이번 국내 주식 랭킹이 잘 되는 거 확인되면 알려주세요.)
 
 ## 배포 후 꼭 확인해주세요 (중요)
 
