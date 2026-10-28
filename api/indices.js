@@ -2,10 +2,15 @@
 // (로그인/키 불필요, 지연 없음 — finance.naver.com 화면과 같은 값)
 // 해외 지수(S&P500·나스닥·다우존스)는 야후 파이낸스 공개 차트 API를 씁니다.
 // (키 불필요하지만 보통 15~20분 지연)
+//
+// 접속하자마자 차트가 텅 비어있지 않도록, 오늘 하루치 분봉(5분 간격) 데이터를
+// 야후 차트 API에서 한 번에 받아와 `spark`로 같이 내려줍니다. (국내 지수도 야후에
+// 같은 이름의 지수(^KS11, ^KQ11)가 있어서 분봉 모양만 참고용으로 가져오고,
+// 실제 "현재가"는 더 정확한 네이버 실시간 값을 그대로 씁니다.)
 
 const DOMESTIC = [
-  { code: "KOSPI", name: "코스피", short: "KOSPI", realtime: true },
-  { code: "KOSDAQ", name: "코스닥", short: "KOSDAQ", realtime: true },
+  { code: "KOSPI", name: "코스피", short: "KOSPI", realtime: true, yahooSymbol: "^KS11" },
+  { code: "KOSDAQ", name: "코스닥", short: "KOSDAQ", realtime: true, yahooSymbol: "^KQ11" },
 ];
 
 const OVERSEAS = [
@@ -21,6 +26,42 @@ function toFloat(v) {
   if (v === null || v === undefined) return null;
   const n = parseFloat(String(v).replace(/,/g, ""));
   return isNaN(n) ? null : n;
+}
+
+// 야후 차트 API에서 오늘 하루치 분봉(5분)을 받아옵니다. meta(현재가 등)와
+// spark(분봉 점들)를 같이 돌려줘요. 실패하면 던짐.
+async function fetchYahooChart(symbol) {
+  let lastErr;
+  for (const host of YAHOO_HOSTS) {
+    try {
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`;
+      const resp = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Accept: "application/json",
+        },
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const data = await resp.json();
+      const result = data?.chart?.result?.[0];
+      const meta = result?.meta;
+      if (!meta) throw new Error("데이터 없음");
+
+      const timestamps = result.timestamp || [];
+      const closes = result.indicators?.quote?.[0]?.close || [];
+      const spark = [];
+      for (let i = 0; i < timestamps.length; i++) {
+        const c = closes[i];
+        if (typeof c === "number") spark.push({ t: timestamps[i] * 1000, p: c });
+      }
+
+      return { meta, spark };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("알 수 없는 오류");
 }
 
 async function fetchDomestic(cfg) {
@@ -49,6 +90,17 @@ async function fetchDomestic(cfg) {
 
   if (price === null) throw new Error("가격 파싱 실패");
 
+  // 분봉 모양은 야후에서 참고용으로만 가져옴 — 실패해도 현재가(네이버)는 그대로 살림
+  let spark = [];
+  try {
+    const chart = await fetchYahooChart(cfg.yahooSymbol);
+    spark = chart.spark;
+  } catch (e) {
+    // 분봉은 없어도 괜찮음 (클라이언트에서 직접 쌓아가며 채움)
+  }
+  // 네이버 실시간 현재가를 마지막 점으로 추가해서 분봉 끝과 실제 현재가가 이어지도록 함
+  spark.push({ t: Date.now(), p: price });
+
   return {
     code: cfg.code,
     name: cfg.name,
@@ -59,51 +111,34 @@ async function fetchDomestic(cfg) {
     direction: (change ?? 0) > 0 ? "up" : (change ?? 0) < 0 ? "down" : "flat",
     realtime: true,
     tradedAt: d.localTradedAt || null,
+    spark,
   };
 }
 
 async function fetchOverseas(cfg) {
-  let lastErr;
-  for (const host of YAHOO_HOSTS) {
-    try {
-      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(cfg.symbol)}?range=1d&interval=1d`;
-      const resp = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          Accept: "application/json",
-        },
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const { meta, spark } = await fetchYahooChart(cfg.symbol);
 
-      const data = await resp.json();
-      const meta = data?.chart?.result?.[0]?.meta;
-      if (!meta) throw new Error("데이터 없음");
-
-      const price = meta.regularMarketPrice;
-      const prevClose = meta.previousClose ?? meta.chartPreviousClose;
-      if (typeof price !== "number" || typeof prevClose !== "number") {
-        throw new Error("가격 정보 없음");
-      }
-
-      const change = price - prevClose;
-      const changePercent = (change / prevClose) * 100;
-
-      return {
-        code: cfg.symbol,
-        name: cfg.name,
-        short: cfg.short,
-        price,
-        change,
-        changePercent,
-        direction: change > 0 ? "up" : change < 0 ? "down" : "flat",
-        realtime: false,
-        tradedAt: null,
-      };
-    } catch (err) {
-      lastErr = err;
-    }
+  const price = meta.regularMarketPrice;
+  const prevClose = meta.previousClose ?? meta.chartPreviousClose;
+  if (typeof price !== "number" || typeof prevClose !== "number") {
+    throw new Error("가격 정보 없음");
   }
-  throw lastErr || new Error("알 수 없는 오류");
+
+  const change = price - prevClose;
+  const changePercent = (change / prevClose) * 100;
+
+  return {
+    code: cfg.symbol,
+    name: cfg.name,
+    short: cfg.short,
+    price,
+    change,
+    changePercent,
+    direction: change > 0 ? "up" : change < 0 ? "down" : "flat",
+    realtime: false,
+    tradedAt: null,
+    spark,
+  };
 }
 
 module.exports = async function handler(req, res) {

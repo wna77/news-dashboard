@@ -509,7 +509,7 @@
           </div>
           <div class="chart-foot">
             <span id="chartLow">최저 -</span>
-            <span id="chartCaption">접속한 뒤부터의 흐름이에요</span>
+            <span id="chartCaption">오늘 하루 흐름이에요</span>
             <span id="chartHigh">최고 -</span>
           </div>
         </div>
@@ -767,8 +767,30 @@ function appendHistoryPoint(code, price) {
   if (!last || last.p !== price) {
     arr.push({ t: Date.now(), p: price });
   }
-  if (arr.length > 300) arr.shift();
+  if (arr.length > 400) arr.shift();
   saveHistory(indexHistory);
+}
+
+// 서버가 같이 보내주는 오늘자 분봉(spark)을 로컬 기록에 합쳐서,
+// 접속하자마자(수집된 게 거의 없어도) 차트가 바로 그려지도록 함
+function mergeSpark(code, sparkArr) {
+  if (!sparkArr || !sparkArr.length) return;
+  if (!indexHistory[code]) indexHistory[code] = [];
+  const arr = indexHistory[code];
+  const seen = new Set(arr.map((p) => p.t));
+  let added = false;
+  sparkArr.forEach((pt) => {
+    if (!seen.has(pt.t)) {
+      arr.push(pt);
+      seen.add(pt.t);
+      added = true;
+    }
+  });
+  if (added) {
+    arr.sort((a, b) => a.t - b.t);
+    if (arr.length > 400) indexHistory[code] = arr.slice(arr.length - 400);
+    saveHistory(indexHistory);
+  }
 }
 
 function renderIndexCards() {
@@ -867,7 +889,10 @@ async function loadIndices() {
     const res = await fetch("/api/indices");
     const data = await res.json();
     indexItems = data.items || [];
-    indexItems.forEach((idx) => appendHistoryPoint(idx.code, idx.price));
+    indexItems.forEach((idx) => {
+      mergeSpark(idx.code, idx.spark);
+      appendHistoryPoint(idx.code, idx.price);
+    });
     if (!activeIndexCode && indexItems.length) activeIndexCode = indexItems[0].code;
     renderIndexCards();
     renderChart();
