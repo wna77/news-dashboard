@@ -1,4 +1,4 @@
-const CACHE_NAME = "news-dashboard-shell-v5";
+const CACHE_NAME = "news-dashboard-shell-v6";
 const SHELL_FILES = [
   "/",
   "/manifest.json",
