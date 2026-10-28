@@ -1,87 +1,93 @@
-// 네이버 금융 환율 페이지에서 주요 통화 환율을 가져와요.
-// 페이지 구조가 바뀌면 파싱이 실패할 수 있어서, 실패해도 전체 API가 죽지 않고
-// errors 배열에 이유를 담아 보내도록 만들었어요.
+// 네이버 환율계산기 위젯이 쓰는 공개 JSON 엔드포인트를 사용해요.
+// (finance.naver.com의 구 환율 테이블 페이지는 더 이상 응답하지 않아서 이 방식으로 교체함)
 
-const CURRENCY_LABELS = {
-  FX_USDKRW: { name: "미국", unit: "USD", flag: "🇺🇸" },
-  FX_JPYKRW100: { name: "일본", unit: "JPY(100엔)", flag: "🇯🇵" },
-  FX_THBKRW: { name: "태국", unit: "THB", flag: "🇹🇭" },
-  FX_EURKRW: { name: "유럽", unit: "EUR", flag: "🇪🇺" },
-  FX_CNYKRW: { name: "중국", unit: "CNY", flag: "🇨🇳" },
-};
-
-const TARGET_ORDER = [
-  "FX_USDKRW",
-  "FX_JPYKRW100",
-  "FX_THBKRW",
-  "FX_EURKRW",
-  "FX_CNYKRW",
+const TARGETS = [
+  { code: "USD", name: "미국", unit: "USD", flag: "🇺🇸", per: 1 },
+  { code: "JPY", name: "일본", unit: "JPY(100엔)", flag: "🇯🇵", per: 100 },
+  { code: "THB", name: "태국", unit: "THB", flag: "🇹🇭", per: 1 },
+  { code: "EUR", name: "유럽", unit: "EUR", flag: "🇪🇺", per: 1 },
+  { code: "CNY", name: "중국", unit: "CNY", flag: "🇨🇳", per: 1 },
 ];
 
-function parseRows(html) {
-  const rows = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/g) || [];
-  const results = [];
-
-  rows.forEach((row) => {
-    const cdMatch = row.match(/marketindexCd=([A-Z0-9_]+)/);
-    if (!cdMatch) return;
-    const cd = cdMatch[1];
-    if (!TARGET_ORDER.includes(cd)) return;
-
-    const saleMatch = row.match(/class="sale">\s*([\d,.]+)\s*</);
-    if (!saleMatch) return;
-
-    const changeMatch = row.match(/class="change">\s*([\d,.]+)\s*</);
-    const isUp = /상승|class="[^"]*\bup\b[^"]*"|▲/.test(row);
-    const isDown = /하락|class="[^"]*\bdown\b[^"]*"|▼/.test(row);
-
-    results.push({
-      code: cd,
-      ...CURRENCY_LABELS[cd],
-      rate: saleMatch[1],
-      change: changeMatch ? changeMatch[1] : null,
-      direction: isUp ? "up" : isDown ? "down" : "flat",
-    });
+async function fetchRate(code) {
+  const params = new URLSearchParams({
+    key: "calculator",
+    pkid: "141",
+    q: "환율",
+    where: "m",
+    u1: "keb",
+    u2: "1",
+    u3: code,
+    u4: "KRW",
+    u6: "standardUnit",
+    u7: "0",
+    u8: "down",
   });
 
-  return results;
+  const url = `https://m.search.naver.com/p/csearch/content/qapirender.nhn?${params.toString()}`;
+
+  const resp = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status}`);
+  }
+
+  const text = await resp.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error("응답을 해석할 수 없음");
+  }
+
+  if (!data.country || data.country.length < 2) {
+    throw new Error("환율 데이터 없음");
+  }
+
+  const fromValue = parseFloat(String(data.country[0].value).replace(/,/g, ""));
+  const toValue = parseFloat(String(data.country[1].value).replace(/,/g, ""));
+
+  if (!fromValue || !toValue) {
+    throw new Error("환율 값 파싱 실패");
+  }
+
+  return toValue / fromValue; // KRW per 1 unit of `code`
 }
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
   const errors = [];
-  let items = [];
+  const resultMap = {};
 
-  try {
-    const resp = await fetch(
-      "https://finance.naver.com/marketindex/exchangeList.naver",
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        },
+  await Promise.all(
+    TARGETS.map(async (t) => {
+      try {
+        const perUnitRate = await fetchRate(t.code);
+        const displayRate = perUnitRate * t.per;
+        resultMap[t.code] = {
+          code: t.code,
+          name: t.name,
+          unit: t.unit,
+          flag: t.flag,
+          rate: displayRate.toLocaleString("ko-KR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }),
+          rawRate: displayRate,
+        };
+      } catch (err) {
+        errors.push(`${t.name}(${t.code}) 가져오기 실패: ${err.message}`);
       }
-    );
+    })
+  );
 
-    if (!resp.ok) {
-      throw new Error(`네이버 금융 응답 오류: ${resp.status}`);
-    }
-
-    const html = await resp.text();
-    const parsed = parseRows(html);
-
-    // 순서를 TARGET_ORDER 기준으로 정렬
-    items = TARGET_ORDER.map((cd) => parsed.find((p) => p.code === cd)).filter(
-      Boolean
-    );
-
-    if (items.length === 0) {
-      errors.push("환율 데이터를 찾지 못했습니다 (페이지 구조 변경 가능성).");
-    }
-  } catch (err) {
-    errors.push(String(err.message || err));
-  }
+  const items = TARGETS.map((t) => resultMap[t.code]).filter(Boolean);
 
   res.status(200).json({
     items,

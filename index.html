@@ -668,6 +668,10 @@ async function loadFx() {
   }
 }
 
+// 네이버 쪽 API가 전일대비 변동값을 안 주기 때문에, 직전 폴링 값과 비교해서
+// 화면에서 자체적으로 상승/하락 틱을 표시해요 (실제 증권 시세판의 "틱" 느낌).
+const prevFxRates = {};
+
 function renderFx(data) {
   fxScroll.innerHTML = "";
   const items = data.items || [];
@@ -680,14 +684,34 @@ function renderFx(data) {
   items.forEach((fx) => {
     const card = document.createElement("div");
     card.className = "fx-card";
-    const arrow = fx.direction === "up" ? "▲" : fx.direction === "down" ? "▼" : "-";
+
+    const prev = prevFxRates[fx.code];
+    let direction = "flat";
+    let diffText = "최초 조회";
+    if (typeof prev === "number") {
+      const diff = fx.rawRate - prev;
+      if (diff > 0.001) direction = "up";
+      else if (diff < -0.001) direction = "down";
+      diffText = direction === "flat" ? "변동 없음" : Math.abs(diff).toFixed(2);
+    }
+    prevFxRates[fx.code] = fx.rawRate;
+
+    const arrow = direction === "up" ? "▲" : direction === "down" ? "▼" : "·";
+
     card.innerHTML = `
       <div class="fx-name">${fx.flag || ""} ${fx.name} · ${fx.unit}</div>
       <div class="fx-rate">${fx.rate}</div>
-      <div class="fx-change ${fx.direction}">${arrow} ${fx.change ?? ""}</div>
+      <div class="fx-change ${direction}">${arrow} ${diffText}</div>
     `;
     fxScroll.appendChild(card);
   });
+
+  if (data.errors && data.errors.length) {
+    const errEl = document.createElement("div");
+    errEl.className = "fx-error";
+    errEl.textContent = data.errors.join(" / ");
+    fxScroll.appendChild(errEl);
+  }
 }
 
 /* ---------- 자동 새로고침 ---------- */

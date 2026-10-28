@@ -14,38 +14,49 @@ function stripTags(str = "") {
     .trim();
 }
 
-// 제목을 비교하기 쉬운 형태로 정규화 (공백/특수문자/조사성 꼬리표 제거)
-function normalizeTitle(title = "") {
-  return title
-    .toLowerCase()
-    .replace(/\[[^\]]*\]/g, "") // [단독], [속보] 같은 대괄호 태그 제거
-    .replace(/\([^)]*\)/g, "")
-    .replace(/[^\p{L}\p{N}]/gu, "") // 문자/숫자만 남김
-    .trim();
+// 흔한 조사/어미 꼬리를 느슨하게 제거 (완벽하지 않아도 비교용으론 충분)
+const PARTICLE_TAIL = /(으로서|이라며|이라고|라며|라고|에서는|에서|으로|까지|부터|이지만|지만|하다|한다|했다|했|이|가|을|를|은|는|의|에|도|와|과|만|께|이며|며)$/;
+
+function stripParticle(word) {
+  const stripped = word.replace(PARTICLE_TAIL, "");
+  return stripped.length >= 2 ? stripped : word;
 }
 
-// 두 정규화된 제목의 유사도 (문자 단위 자카드 유사도, 0~1)
-function titleSimilarity(a, b) {
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-  const setA = new Set(a.match(/.{1,2}/g) || []); // 2-gram
-  const setB = new Set(b.match(/.{1,2}/g) || []);
-  if (setA.size === 0 || setB.size === 0) return 0;
+// 제목을 비교 가능한 "단어 집합"으로 정규화 (어순이 달라도 비교 가능하도록)
+function titleWordSet(title = "") {
+  const cleaned = title
+    .toLowerCase()
+    .replace(/\[[^\]]*\]/g, " ") // [단독], [속보] 같은 대괄호 태그 제거
+    .replace(/[^\p{L}\p{N}\s]/gu, " "); // 문장부호 제거, 공백은 유지
+
+  const words = cleaned
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2)
+    .map(stripParticle)
+    .filter((w) => w.length >= 2);
+
+  return new Set(words);
+}
+
+// 두 단어집합의 자카드 유사도 (0~1). 어순이 달라도 내용이 같으면 높게 나옴
+function titleSimilarity(setA, setB) {
+  if (!setA.size || !setB.size) return 0;
   let intersection = 0;
-  setA.forEach((g) => {
-    if (setB.has(g)) intersection += 1;
+  setA.forEach((w) => {
+    if (setB.has(w)) intersection += 1;
   });
   const union = setA.size + setB.size - intersection;
   return union === 0 ? 0 : intersection / union;
 }
 
-const SIMILARITY_THRESHOLD = 0.55;
+const SIMILARITY_THRESHOLD = 0.4;
 
 function dedupe(items) {
   const merged = [];
 
   items.forEach((item) => {
-    const norm = normalizeTitle(item.title);
+    const norm = titleWordSet(item.title);
     const existing = merged.find(
       (m) => titleSimilarity(m._norm, norm) >= SIMILARITY_THRESHOLD
     );
@@ -63,6 +74,8 @@ function dedupe(items) {
         existing.sourceType = "naver";
         existing.press = item.press || existing.press;
       }
+      // 단어 집합을 합쳐서, 이후 등장하는 비슷한 제목도 더 잘 묶이도록 함
+      norm.forEach((w) => existing._norm.add(w));
     } else {
       merged.push({
         title: item.title,
