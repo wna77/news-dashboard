@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>경제 뉴스 시세판</title>
+<meta name="description" content="환율과 국장·미장·금리·부동산 뉴스를 한 눈에 보는 개인 대시보드" />
+
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0B0E1A" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="뉴스시세판" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css"></script>
+
+<style>
+  :root{
+    --bg: #0B0E1A;
+    --bg-elev: rgba(255,255,255,0.05);
+    --bg-elev-strong: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.09);
+    --text: #F3F5F9;
+    --text-dim: #8A93A6;
+    --text-faint: #5B6477;
+    --accent: #6D6CFF;
+    --accent-2: #9B6CFF;
+    --up: #FF4D5E;
+    --down: #3B9CFF;
+    --mono: 'IBM Plex Mono', monospace;
+    --kr: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--kr);
+    min-height: 100%;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 15% 0%, rgba(109,108,255,0.16), transparent 42%),
+      radial-gradient(circle at 85% 8%, rgba(155,108,255,0.12), transparent 40%),
+      var(--bg);
+  }
+
+  a { color: inherit; }
+
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding-bottom: calc(28px + var(--safe-bottom));
+    position: relative;
+  }
+
+  /* ===== 헤더 ===== */
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: calc(14px + var(--safe-top)) 18px 10px;
+    background: rgba(11,14,26,0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .brand .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--up);
+    box-shadow: 0 0 10px var(--up);
+    animation: blink 1.8s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  .brand h1 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .header-actions { display: flex; align-items: center; gap: 6px; }
+
+  .icon-btn {
+    width: 34px; height: 34px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background .15s, transform .15s;
+  }
+  .icon-btn:active { transform: scale(0.92); }
+  .icon-btn.spinning svg { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .refresh-track {
+    height: 2px;
+    margin-top: 10px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+  }
+  .refresh-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 1s linear;
+  }
+
+  /* ===== 환율 티커 ===== */
+  .fx-section { padding: 14px 0 4px; }
+  .fx-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 0 18px 4px;
+    scroll-snap-type: x proximity;
+  }
+  .fx-scroll::-webkit-scrollbar { display: none; }
+
+  .fx-card {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    min-width: 128px;
+    background: linear-gradient(180deg, var(--bg-elev-strong), var(--bg-elev));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 10px 12px;
+  }
+
+  .fx-card .fx-name {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .fx-card .fx-rate {
+    font-family: var(--mono);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .fx-card .fx-change {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .fx-change.up { color: var(--up); }
+  .fx-change.down { color: var(--down); }
+  .fx-change.flat { color: var(--text-faint); }
+
+  .fx-skeleton {
+    height: 66px;
+    border-radius: 16px;
+    background: linear-gradient(90deg, var(--bg-elev) 25%, var(--bg-elev-strong) 37%, var(--bg-elev) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    min-width: 128px;
+    flex: 0 0 auto;
+  }
+  @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
+
+  .fx-error {
+    font-size: 12px;
+    color: var(--text-faint);
+    padding: 0 18px;
+  }
+
+  /* ===== 카테고리 칩 ===== */
+  .cat-section {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .cat-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 14px 18px;
+    scroll-snap-type: x proximity;
+  }
+  .cat-scroll::-webkit-scrollbar { display: none; }
+
+  .chip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text-dim);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s;
+  }
+  .chip.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+    color: #fff;
+    font-weight: 600;
+  }
+  .chip.manage-chip {
+    color: var(--text-faint);
+    font-size: 16px;
+    padding: 9px 12px;
+  }
+
+  /* ===== 뉴스 피드 ===== */
+  .feed { padding: 4px 18px 12px; display: flex; flex-direction: column; gap: 10px; }
+
+  .feed-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 2px 2px;
+  }
+  .feed-head .label {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+  }
+
+  .news-card {
+    background: linear-gradient(180deg, var(--bg-elev-strong), var(--bg-elev));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px;
+    text-decoration: none;
+    display: block;
+    transition: transform .15s, border-color .15s;
+  }
+  .news-card:active { transform: scale(0.98); }
+
+  .news-card .headline {
+    font-size: 15px;
+    line-height: 1.5;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .news-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .src-tag {
+    font-size: 10.5px;
+    font-family: var(--mono);
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .src-tag.both {
+    color: #CFE0FF;
+    border-color: rgba(109,108,255,0.4);
+    background: rgba(109,108,255,0.12);
+  }
+
+  .news-time {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    margin-left: auto;
+  }
+
+  .news-card.skeleton {
+    height: 96px;
+    background: linear-gradient(90deg, var(--bg-elev) 25%, var(--bg-elev-strong) 37%, var(--bg-elev) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+
+  .empty-state, .error-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-faint);
+    font-size: 13px;
+  }
+  .error-state { color: var(--up); }
+
+  /* ===== 바텀시트 ===== */
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .sheet {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 51;
+    max-width: 640px;
+    margin: 0 auto;
+    background: #12162A;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 24px 24px 0 0;
+    padding: 10px 20px calc(24px + var(--safe-bottom));
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.32,.72,0,1);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .sheet.open { transform: translateY(0); }
+
+  .sheet-handle {
+    width: 36px; height: 4px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 2px;
+    margin: 6px auto 16px;
+  }
+
+  .sheet h2 {
+    font-size: 17px;
+    margin: 0 0 14px;
+  }
+
+  .sheet-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+
+  .sheet-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .sheet-row .name { font-size: 14px; }
+  .sheet-row .row-actions { display: flex; gap: 4px; }
+  .sheet-row button {
+    background: none; border: none; color: var(--text-faint);
+    font-size: 13px; padding: 4px 8px; cursor: pointer;
+  }
+  .sheet-row button:hover { color: var(--text); }
+
+  .field-label { font-size: 12.5px; color: var(--text-dim); margin: 14px 0 6px; }
+  .sheet input {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--kr);
+    font-size: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .sheet-primary-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ===== 설치 배너 ===== */
+  .install-banner {
+    margin: 4px 18px 0;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(109,108,255,0.18), rgba(155,108,255,0.1));
+    border: 1px solid rgba(109,108,255,0.35);
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .install-banner.show { display: flex; }
+  .install-banner .txt { flex: 1; font-size: 12.5px; color: #E4E6FF; line-height: 1.4; }
+  .install-banner button {
+    background: #fff;
+    color: #1A1035;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .install-banner .close-x {
+    background: none; color: var(--text-faint); font-size: 16px; padding: 2px 4px;
+  }
+
+  @media (min-width: 720px) {
+    .app { max-width: 760px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="app-header">
+    <div class="app-header-row">
+      <div class="brand">
+        <span class="dot"></span>
+        <h1>경제 뉴스 시세판</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="manageBtn" title="카테고리 관리">☰</button>
+        <button class="icon-btn" id="refreshBtn" title="새로고침">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="refresh-track"><div class="refresh-fill" id="refreshFill"></div></div>
+  </header>
+
+  <div class="install-banner" id="installBanner">
+    <div class="txt" id="installText">홈 화면에 추가하면 앱처럼 바로 열 수 있어요</div>
+    <button id="installBtn">추가</button>
+    <button class="close-x" id="installClose">✕</button>
+  </div>
+
+  <section class="fx-section">
+    <div class="fx-scroll" id="fxScroll">
+      <div class="fx-skeleton"></div>
+      <div class="fx-skeleton"></div>
+      <div class="fx-skeleton"></div>
+    </div>
+  </section>
+
+  <section class="cat-section">
+    <div class="cat-scroll" id="catScroll"></div>
+  </section>
+
+  <section class="feed">
+    <div class="feed-head">
+      <span class="label" id="feedLabel">LOADING</span>
+      <span class="label" id="feedTime"></span>
+    </div>
+    <div id="feedList">
+      <div class="news-card skeleton"></div>
+      <div class="news-card skeleton"></div>
+      <div class="news-card skeleton"></div>
+    </div>
+  </section>
+</div>
+
+<!-- 카테고리 관리 바텀시트 -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="sheet" id="manageSheet">
+  <div class="sheet-handle"></div>
+  <h2>카테고리 관리</h2>
+  <div class="sheet-list" id="sheetCatList"></div>
+
+  <div id="catForm">
+    <div class="field-label">카테고리 이름</div>
+    <input type="text" id="catNameInput" placeholder="예: 반도체" />
+    <div class="field-label">검색어</div>
+    <input type="text" id="catQueryInput" placeholder="예: 반도체 수출 마감" />
+    <button class="sheet-primary-btn" id="catSubmitBtn">추가하기</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "newsDashboardCategoriesV2";
+const OLD_STORAGE_KEY = "newsDashboardCategories";
+const REFRESH_INTERVAL_MS = 120000; // 2분
+
+const DEFAULT_CATEGORIES = [
+  { id: "kospi",       code: "KR-EQ",  name: "국내증시",  query: "코스피 지수 마감" },
+  { id: "us",          code: "US-EQ",  name: "해외증시",  query: "나스닥 다우존스 마감" },
+  { id: "rate",        code: "RATE",   name: "금리",       query: "한국은행 기준금리" },
+  { id: "realestate",  code: "R-EST",  name: "부동산",     query: "아파트 매매가 시세" },
+];
+
+function loadCategories() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+    // 구버전 데이터 마이그레이션
+    const old = localStorage.getItem(OLD_STORAGE_KEY);
+    if (old) return JSON.parse(old);
+  } catch (e) {}
+  return DEFAULT_CATEGORIES.slice();
+}
+
+function saveCategories(cats) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+}
+
+let categories = loadCategories();
+let activeId = categories.length ? categories[0].id : null;
+let editingId = null;
+let refreshTimer = null;
+let refreshDeadline = 0;
+
+const catScroll = document.getElementById("catScroll");
+const feedList = document.getElementById("feedList");
+const feedLabel = document.getElementById("feedLabel");
+const feedTime = document.getElementById("feedTime");
+const refreshFill = document.getElementById("refreshFill");
+const refreshBtn = document.getElementById("refreshBtn");
+const fxScroll = document.getElementById("fxScroll");
+
+function codeFromName(name) {
+  return name.slice(0, 4).toUpperCase();
+}
+
+/* ---------- 카테고리 칩 ---------- */
+function renderChips() {
+  catScroll.innerHTML = "";
+  categories.forEach((cat) => {
+    const chip = document.createElement("div");
+    chip.className = "chip" + (cat.id === activeId ? " active" : "");
+    chip.textContent = cat.name;
+    chip.addEventListener("click", () => selectCategory(cat.id));
+    catScroll.appendChild(chip);
+  });
+  const manageChip = document.createElement("div");
+  manageChip.className = "chip manage-chip";
+  manageChip.textContent = "+";
+  manageChip.addEventListener("click", openManageSheet);
+  catScroll.appendChild(manageChip);
+}
+
+function selectCategory(id) {
+  activeId = id;
+  renderChips();
+  loadFeed(id);
+}
+
+/* ---------- 뉴스 피드 ---------- */
+function timeAgo(dateStr) {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const diffMs = Date.now() - d.getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "방금";
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return d.toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
+}
+
+function renderFeed(data) {
+  feedList.innerHTML = "";
+  const items = data.items || [];
+
+  if (items.length === 0) {
+    const msg = (data.errors && data.errors.length) ? data.errors.join(" / ") : "가져온 뉴스가 없어요";
+    const el = document.createElement("div");
+    el.className = (data.errors && data.errors.length) ? "error-state" : "empty-state";
+    el.textContent = msg;
+    feedList.appendChild(el);
+    return;
+  }
+
+  items.forEach((item) => {
+    const a = document.createElement("a");
+    a.className = "news-card";
+    a.href = item.link;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+
+    const bothSources = item.sources.length > 1;
+    const tagText = bothSources ? "NAVER+GOOGLE" : (item.sources[0] === "네이버뉴스" ? "NAVER" : "GOOGLE");
+
+    a.innerHTML = `
+      <div class="headline">${item.title}</div>
+      <div class="news-meta">
+        <span class="src-tag ${bothSources ? "both" : ""}">${tagText}</span>
+        ${item.press ? `<span class="src-tag">${item.press}</span>` : ""}
+        <span class="news-time">${timeAgo(item.pubDate)}</span>
+      </div>
+    `;
+    feedList.appendChild(a);
+  });
+}
+
+async function loadFeed(id) {
+  const cat = categories.find((c) => c.id === id);
+  if (!cat) return;
+
+  feedLabel.textContent = cat.name.toUpperCase();
+  feedList.innerHTML = `
+    <div class="news-card skeleton"></div>
+    <div class="news-card skeleton"></div>
+    <div class="news-card skeleton"></div>
+  `;
+
+  try {
+    const res = await fetch(`/api/news?q=${encodeURIComponent(cat.query)}`);
+    const data = await res.json();
+    if (id === activeId) {
+      renderFeed(data);
+      feedTime.textContent = new Date(data.fetchedAt || Date.now()).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    }
+  } catch (err) {
+    if (id === activeId) {
+      feedList.innerHTML = `<div class="error-state">불러오기 실패: ${err.message}</div>`;
+    }
+  }
+}
+
+/* ---------- 환율 티커 ---------- */
+async function loadFx() {
+  try {
+    const res = await fetch("/api/fx");
+    const data = await res.json();
+    renderFx(data);
+  } catch (err) {
+    fxScroll.innerHTML = `<div class="fx-error">환율 정보를 불러오지 못했어요</div>`;
+  }
+}
+
+function renderFx(data) {
+  fxScroll.innerHTML = "";
+  const items = data.items || [];
+
+  if (items.length === 0) {
+    fxScroll.innerHTML = `<div class="fx-error">${(data.errors || []).join(" / ") || "환율 정보가 없어요"}</div>`;
+    return;
+  }
+
+  items.forEach((fx) => {
+    const card = document.createElement("div");
+    card.className = "fx-card";
+    const arrow = fx.direction === "up" ? "▲" : fx.direction === "down" ? "▼" : "-";
+    card.innerHTML = `
+      <div class="fx-name">${fx.flag || ""} ${fx.name} · ${fx.unit}</div>
+      <div class="fx-rate">${fx.rate}</div>
+      <div class="fx-change ${fx.direction}">${arrow} ${fx.change ?? ""}</div>
+    `;
+    fxScroll.appendChild(card);
+  });
+}
+
+/* ---------- 자동 새로고침 ---------- */
+function refreshAll() {
+  loadFx();
+  if (activeId) loadFeed(activeId);
+  resetRefreshTimer();
+}
+
+function resetRefreshTimer() {
+  refreshDeadline = Date.now() + REFRESH_INTERVAL_MS;
+  refreshFill.style.transition = "none";
+  refreshFill.style.width = "0%";
+  requestAnimationFrame(() => {
+    refreshFill.style.transition = `width ${REFRESH_INTERVAL_MS}ms linear`;
+    refreshFill.style.width = "100%";
+  });
+}
+
+refreshBtn.addEventListener("click", () => {
+  refreshBtn.classList.add("spinning");
+  refreshAll();
+  setTimeout(() => refreshBtn.classList.remove("spinning"), 800);
+});
+
+/* ---------- 바텀시트: 카테고리 관리 ---------- */
+const sheetBackdrop = document.getElementById("sheetBackdrop");
+const manageSheet = document.getElementById("manageSheet");
+const sheetCatList = document.getElementById("sheetCatList");
+const catNameInput = document.getElementById("catNameInput");
+const catQueryInput = document.getElementById("catQueryInput");
+const catSubmitBtn = document.getElementById("catSubmitBtn");
+
+function renderSheetList() {
+  sheetCatList.innerHTML = "";
+  categories.forEach((cat) => {
+    const row = document.createElement("div");
+    row.className = "sheet-row";
+    row.innerHTML = `
+      <span class="name">${cat.name}</span>
+      <span class="row-actions">
+        <button data-act="edit" data-id="${cat.id}">수정</button>
+        <button data-act="delete" data-id="${cat.id}">삭제</button>
+      </span>
+    `;
+    sheetCatList.appendChild(row);
+  });
+
+  sheetCatList.querySelectorAll('button[data-act="edit"]').forEach((btn) => {
+    btn.addEventListener("click", () => startEdit(btn.dataset.id));
+  });
+  sheetCatList.querySelectorAll('button[data-act="delete"]').forEach((btn) => {
+    btn.addEventListener("click", () => deleteCategory(btn.dataset.id));
+  });
+}
+
+function openManageSheet() {
+  renderSheetList();
+  resetForm();
+  sheetBackdrop.classList.add("open");
+  manageSheet.classList.add("open");
+}
+
+function closeManageSheet() {
+  sheetBackdrop.classList.remove("open");
+  manageSheet.classList.remove("open");
+}
+
+sheetBackdrop.addEventListener("click", closeManageSheet);
+document.getElementById("manageBtn").addEventListener("click", openManageSheet);
+
+function resetForm() {
+  editingId = null;
+  catNameInput.value = "";
+  catQueryInput.value = "";
+  catSubmitBtn.textContent = "추가하기";
+}
+
+function startEdit(id) {
+  const cat = categories.find((c) => c.id === id);
+  if (!cat) return;
+  editingId = id;
+  catNameInput.value = cat.name;
+  catQueryInput.value = cat.query;
+  catSubmitBtn.textContent = "저장하기";
+  catNameInput.focus();
+}
+
+function deleteCategory(id) {
+  categories = categories.filter((c) => c.id !== id);
+  saveCategories(categories);
+  renderSheetList();
+  renderChips();
+  if (activeId === id) {
+    activeId = categories.length ? categories[0].id : null;
+    if (activeId) loadFeed(activeId);
+    else feedList.innerHTML = `<div class="empty-state">카테고리를 추가해보세요</div>`;
+  }
+}
+
+catSubmitBtn.addEventListener("click", () => {
+  const name = catNameInput.value.trim();
+  const query = catQueryInput.value.trim();
+  if (!name || !query) {
+    alert("카테고리 이름과 검색어를 모두 입력해주세요.");
+    return;
+  }
+
+  if (editingId) {
+    const cat = categories.find((c) => c.id === editingId);
+    if (cat) {
+      cat.name = name;
+      cat.query = query;
+      cat.code = codeFromName(name);
+    }
+    saveCategories(categories);
+    resetForm();
+    renderSheetList();
+    renderChips();
+    if (activeId === editingId) loadFeed(activeId);
+    return;
+  }
+
+  const id = "cat_" + Date.now();
+  categories.push({ id, name, query, code: codeFromName(name) });
+  saveCategories(categories);
+  resetForm();
+  renderSheetList();
+  renderChips();
+  if (!activeId) selectCategory(id);
+});
+
+/* ---------- PWA 설치 배너 ---------- */
+let deferredInstallPrompt = null;
+const installBanner = document.getElementById("installBanner");
+const installBtn = document.getElementById("installBtn");
+const installClose = document.getElementById("installClose");
+const installText = document.getElementById("installText");
+
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const dismissed = localStorage.getItem("installBannerDismissed") === "1";
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!isStandalone && !dismissed) {
+    installBanner.classList.add("show");
+  }
+});
+
+if (isIOS && !isStandalone && !dismissed) {
+  installText.textContent = "공유 버튼 → \"홈 화면에 추가\"를 누르면 앱처럼 쓸 수 있어요";
+  installBtn.style.display = "none";
+  installBanner.classList.add("show");
+}
+
+installBtn.addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  installBanner.classList.remove("show");
+});
+
+installClose.addEventListener("click", () => {
+  installBanner.classList.remove("show");
+  localStorage.setItem("installBannerDismissed", "1");
+});
+
+/* ---------- 서비스워커 등록 ---------- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
+/* ---------- 초기 구동 ---------- */
+renderChips();
+loadFx();
+if (activeId) loadFeed(activeId);
+resetRefreshTimer();
+refreshTimer = setInterval(refreshAll, REFRESH_INTERVAL_MS);
+</script>
+
+</body>
+</html>
