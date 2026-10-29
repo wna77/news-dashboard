@@ -1,5 +1,7 @@
-// 종목 검색 (자동완성) — 국내 주식
-// 사용법: /api/search?q=삼성
+// 종목 검색 (자동완성) — 국내 / 미국 주식
+// 국내: /api/search?q=삼성
+// 미국: /api/search?market=us&q=애플  (한글 이름·티커 모두 가능)
+//   1순위 네이버 자동완성(로이터코드 AAPL.O 같은 형태) → 2순위 야후 검색(티커)
 //
 // 1순위: 네이버 증권 자동완성 (ac.stock.naver.com)
 // 2순위: 예전 네이버 금융 자동완성 (ac.finance.naver.com)
@@ -84,11 +86,65 @@ async function fromOldAc(q) {
   return out;
 }
 
+/* ---------------- 미국 ---------------- */
+const US_EXCHANGES = new Set(["NMS", "NGM", "NCM", "NYQ", "PCX", "ASE", "BTS", "NAS", "NYS", "PNK"]);
+
+async function usFromNaver(q) {
+  const json = await fetchJson(`https://ac.stock.naver.com/ac?q=${encodeURIComponent(q)}&target=stock`);
+  const arr = findArray(json) || [];
+  return arr
+    .map((it) => {
+      const nation = String(pick(it, ["nationCode", "nation"]) || "");
+      const rc = String(pick(it, ["reutersCode", "symbolCode", "code"]) || "");
+      const ticker = String(pick(it, ["code", "symbolCode"]) || rc.split(".")[0]);
+      return {
+        code: rc.includes(".") ? rc : ticker,
+        ticker: ticker.split(".")[0],
+        name: String(pick(it, ["name", "itemName", "stockName"]) || ""),
+        market: String(pick(it, ["typeName", "marketName", "typeCode"]) || ""),
+        nation,
+      };
+    })
+    .filter((it) => it.nation === "USA" && it.code && it.name);
+}
+
+async function usFromYahoo(q) {
+  const json = await fetchJson(
+    `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`
+  );
+  return (json?.quotes || [])
+    .filter((x) => x && x.symbol && (x.quoteType === "EQUITY" || x.quoteType === "ETF") && US_EXCHANGES.has(x.exchange))
+    .map((x) => ({
+      code: String(x.symbol).toUpperCase(),
+      ticker: String(x.symbol).toUpperCase(),
+      name: x.shortname || x.longname || x.symbol,
+      market: x.exchDisp || x.exchange || "",
+      nation: "USA",
+    }));
+}
+
+async function searchUS(q) {
+  const errors = [];
+  let items = [];
+  try { items = await usFromNaver(q); } catch (e) { errors.push(`네이버: ${e.message}`); }
+  if (!items.length) {
+    try { items = await usFromYahoo(q); } catch (e) { errors.push(`야후: ${e.message}`); }
+  }
+  const seen = new Set();
+  items = items.filter((it) => (seen.has(it.ticker) ? false : (seen.add(it.ticker), true))).slice(0, 10);
+  return { items, errors };
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   const q = String(req.query.q || "").trim();
   if (!q) {
     res.status(200).json({ items: [], errors: [] });
+    return;
+  }
+
+  if (String(req.query.market || "").toLowerCase() === "us") {
+    res.status(200).json(await searchUS(q));
     return;
   }
 

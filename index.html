@@ -656,6 +656,10 @@
   }
   .wl-news .news-row { padding: 9px 0; }
   .wl-news-foot { font-size: 10.5px; color: var(--text-faint); padding: 6px 0 8px; font-family: var(--mono); }
+  .wl-at { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
+  .macro-strip { margin-top: 10px; }
+  .macro-chip { background: var(--card); }
+  .macro-chip .mc-name { color: var(--text-dim); font-family: var(--kr); }
   .wl-time { font-size: 10.5px; color: var(--text-faint); font-family: var(--mono); text-align: right; margin-top: 6px; }
 
   /* 검색 결과 / 시트 공용 */
@@ -757,6 +761,10 @@
       <div class="index-skeleton"></div>
       <div class="index-skeleton"></div>
       <div class="index-skeleton"></div>
+    </div>
+
+    <div class="fx-strip macro-strip" id="macroStrip">
+      <span class="fx-chip">간밤 시장 불러오는 중…</span>
     </div>
 
     <div class="layout">
@@ -864,7 +872,7 @@
   <h2 id="stockSheetTitle">종목 추가</h2>
 
   <div id="stockSearchArea">
-    <div class="field-label">종목 이름 또는 6자리 코드</div>
+    <div class="field-label" id="stockSearchLabel">종목 이름 또는 6자리 코드</div>
     <input type="text" id="stockSearchInput" placeholder="예: 삼성전자 또는 005930" autocomplete="off" />
     <div class="search-results" id="stockSearchResults"></div>
   </div>
@@ -873,7 +881,7 @@
     <div class="sheet-selected" id="stockSelected"></div>
     <div class="sheet-row2">
       <div>
-        <div class="field-label">평단가 (원)</div>
+        <div class="field-label" id="stockAvgLabel">평단가 (원)</div>
         <input type="text" inputmode="decimal" id="stockAvgInput" placeholder="비워두면 관심종목" />
       </div>
       <div>
@@ -1078,6 +1086,11 @@ function renderFx(data) {
       else if (diff < -0.001) direction = "down";
     }
     prevFxRates[fx.code] = fx.rawRate;
+    if (fx.code === "USD" && typeof fx.rawRate === "number") {
+      const changed = usdKrw !== fx.rawRate;
+      usdKrw = fx.rawRate;
+      if (changed && activeWlTab === "us") renderWatchlist();
+    }
     const arrow = direction === "up" ? "▲" : direction === "down" ? "▼" : "·";
 
     const chip = document.createElement("span");
@@ -1322,6 +1335,7 @@ function refreshAll() {
   loadRanking(activeRankType);
   if (activeCatId) loadNews(activeCatId);
   if (wlExpanded) loadWlNews(wlExpanded, true);
+  loadMacro();
   resetRefreshTimer();
 }
 function resetRefreshTimer() {
@@ -1612,9 +1626,9 @@ function renderMarketStrip() {
   `;
 }
 
-/* ================= 내 종목 (관심종목 + 수익률) ================= */
+/* ================= 내 종목 (관심종목 + 수익률) — 국내·미국 ================= */
 const WL_KEY = "myWatchlistV1";
-const WL_FAST_MS = 30000;   // 장중·화면 보고 있을 때 30초
+const WL_FAST_MS = 30000;   // 장중(미장은 프리·애프터 포함)·화면 보고 있을 때 30초
 const WL_SLOW_MS = 120000;  // 장 마감 땐 2분
 
 function loadWatchlist() {
@@ -1633,12 +1647,15 @@ function saveWatchlist() {
 
 let watchlist = loadWatchlist();
 let activeWlTab = "kr";
-let wlQuotes = {};       // code → 시세
-let wlErrors = {};       // code → 오류
-let wlFetchedAt = null;
-let wlExpanded = null;   // 뉴스 펼친 종목 코드
-const wlNewsCache = {};  // code → { items, fetchedAt, loading, error }
-let wlLastFetch = 0;
+try { const t = localStorage.getItem("myWatchlistTab"); if (t === "kr" || t === "us") activeWlTab = t; } catch (e) {}
+let wlQuotes = { kr: {}, us: {} };        // 시장 → code → 시세
+let wlErrors = { kr: {}, us: {} };
+let wlFetchedAt = { kr: null, us: null };
+let wlLastFetch = { kr: 0, us: 0 };
+let wlExpanded = null;   // 뉴스 펼친 종목 "kr:005930" / "us:AAPL.O"
+const wlNewsCache = {};  // 같은 키 → { items, fetchedAt, loading, error }
+let usdKrw = null;       // 환율 줄에서 받아온 원/달러
+
 const WL_COLLAPSE_KEY = "myWatchlistCollapsed";
 let wlCollapsed = false;
 try { wlCollapsed = localStorage.getItem(WL_COLLAPSE_KEY) === "1"; } catch (e) {}
@@ -1648,26 +1665,71 @@ const wlSummaryEl = document.getElementById("wlSummary");
 const wlListEl = document.getElementById("wlList");
 const wlTimeEl = document.getElementById("wlTime");
 
+function curList() { return watchlist[activeWlTab]; }
 function isHolding(it) {
   return typeof it.avg === "number" && it.avg > 0 && typeof it.qty === "number" && it.qty > 0;
 }
+function tickerOf(it) { return it.ticker || String(it.code).split(".")[0]; }
+function marketFast(tab) {
+  const now = new Date();
+  if (tab === "us") return ["open", "pre", "after"].includes(usMarketState(now).state);
+  return krMarketState(now).state === "open";
+}
+// 가격·금액 표시 (국내: 원, 미국: 달러)
+function usd2(n) {
+  if (n === null || n === undefined || isNaN(n)) return "-";
+  return Math.abs(n).toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtPrice(tab, n) { return tab === "us" ? "$" + usd2(n) : fmtNum(n, 2); }
+function fmtMoney(tab, n) { return tab === "us" ? "$" + usd2(n) : fmtNum(n); }
+function signedChg(tab, n) {
+  if (tab !== "us") return signed(n, 2);
+  if (n === null || n === undefined || isNaN(n)) return "-";
+  return (n > 0 ? "+" : n < 0 ? "-" : "") + usd2(n);
+}
+function signedMoney(tab, n) {
+  if (tab !== "us") return signed(n);
+  if (n === null || n === undefined || isNaN(n)) return "-";
+  const s = n > 0 ? "+" : n < 0 ? "-" : "";
+  return s + "$" + Math.abs(n).toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function krwHint(usd, isSigned) {
+  if (!usdKrw || usd === null || isNaN(usd)) return "";
+  const won = usd * usdKrw;
+  return `≈ ${isSigned ? signed(won) : fmtNum(won)}원`;
+}
+function fmtAt(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const sameDay = new Date().toDateString() === d.toDateString();
+  return d.toLocaleString("ko-KR", sameDay
+    ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }
+    : { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+}
 
 function renderWlTabs() {
+  const n = (t) => watchlist[t].length ? ` <span style="font-size:10.5px;opacity:.7">${watchlist[t].length}</span>` : "";
   wlTabsEl.innerHTML = `
-    <div class="wl-tab ${activeWlTab === "kr" ? "active" : ""}" data-tab="kr">🇰🇷 국내</div>
-    <div class="wl-tab ${activeWlTab === "us" ? "active" : ""} disabled" data-tab="us">🇺🇸 미국 <span style="font-size:10px">(준비 중)</span></div>
+    <div class="wl-tab ${activeWlTab === "kr" ? "active" : ""}" data-tab="kr">🇰🇷 국내${n("kr")}</div>
+    <div class="wl-tab ${activeWlTab === "us" ? "active" : ""}" data-tab="us">🇺🇸 미국${n("us")}</div>
   `;
   wlTabsEl.querySelectorAll(".wl-tab").forEach((el) =>
     el.addEventListener("click", () => {
+      if (activeWlTab === el.dataset.tab) return;
       activeWlTab = el.dataset.tab;
+      try { localStorage.setItem("myWatchlistTab", activeWlTab); } catch (e) {}
+      wlExpanded = null;
       renderWlTabs();
       renderWatchlist();
+      if (Date.now() - wlLastFetch[activeWlTab] > 15000) loadWlQuotes();
     })
   );
 }
 
-function renderWlSummary(list) {
-  const holdings = list.filter((it) => isHolding(it) && wlQuotes[it.code]);
+function renderWlSummary(tab, list) {
+  const quotes = wlQuotes[tab];
+  const holdings = list.filter((it) => isHolding(it) && quotes[it.code]);
   if (!holdings.length) {
     wlSummaryEl.innerHTML = list.some(isHolding)
       ? `<div class="sheet-hint" style="margin:0 0 8px">시세를 불러오면 합계 손익이 보여요</div>`
@@ -1676,26 +1738,32 @@ function renderWlSummary(list) {
   }
   let buy = 0, evalAmt = 0, today = 0;
   holdings.forEach((it) => {
-    const q = wlQuotes[it.code];
+    const q = quotes[it.code];
     buy += it.avg * it.qty;
     evalAmt += q.price * it.qty;
     today += (q.change || 0) * it.qty;
   });
   const pl = evalAmt - buy;
   const rate = buy ? (pl / buy) * 100 : 0;
+  const us = tab === "us";
+  const sub = (txt) => txt ? `<div class="lbl" style="margin:3px 0 0">${txt}</div>` : "";
   wlSummaryEl.innerHTML = `
     <div class="wl-summary">
-      <div class="wl-sum-box"><div class="lbl">평가금액</div><div class="val">${fmtNum(evalAmt)}</div>
-        <div class="lbl" style="margin:3px 0 0">매수 ${fmtNum(buy)}</div></div>
-      <div class="wl-sum-box"><div class="lbl">평가손익</div><div class="val ${dirClass(pl)}">${signed(pl)}</div></div>
-      <div class="wl-sum-box"><div class="lbl">수익률</div><div class="val ${dirClass(rate)}">${signed(rate, 2)}%</div></div>
-      <div class="wl-sum-box"><div class="lbl">오늘 손익</div><div class="val ${dirClass(today)}">${signed(today)}</div></div>
+      <div class="wl-sum-box"><div class="lbl">평가금액</div><div class="val">${fmtMoney(tab, evalAmt)}</div>
+        ${sub(us ? krwHint(evalAmt) : `매수 ${fmtNum(buy)}`)}</div>
+      <div class="wl-sum-box"><div class="lbl">평가손익</div><div class="val ${dirClass(pl)}">${signedMoney(tab, pl)}</div>
+        ${sub(us ? krwHint(pl, true) : "")}</div>
+      <div class="wl-sum-box"><div class="lbl">수익률</div><div class="val ${dirClass(rate)}">${signed(rate, 2)}%</div>
+        ${sub(us ? `매수 ${fmtMoney(tab, buy)}` : "")}</div>
+      <div class="wl-sum-box"><div class="lbl">오늘 손익</div><div class="val ${dirClass(today)}">${signedMoney(tab, today)}</div>
+        ${sub(us ? krwHint(today, true) : "")}</div>
     </div>
+    ${us && usdKrw ? `<div class="sheet-hint" style="margin:-4px 0 8px">원화는 현재 환율(${fmtNum(usdKrw, 2)}원) 기준 환산이에요</div>` : ""}
   `;
 }
 
-function renderWlNews(code) {
-  const c = wlNewsCache[code];
+function renderWlNews(key) {
+  const c = wlNewsCache[key];
   if (!c || c.loading) return `<div class="wl-news"><div class="skeleton-row" style="margin:8px 0"></div><div class="skeleton-row"></div></div>`;
   if (c.error) return `<div class="wl-news"><div class="error-state" style="padding:14px 0">뉴스를 불러오지 못했어요: ${esc(c.error)}</div></div>`;
   if (!c.items.length) return `<div class="wl-news"><div class="empty-state" style="padding:14px 0">관련 뉴스가 없어요</div></div>`;
@@ -1704,7 +1772,7 @@ function renderWlNews(code) {
       <div class="nr-title">${it.title}</div>
       <div class="nr-meta">${it.press ? `<span>${esc(it.press)}</span>` : ""}<span style="margin-left:auto">${timeAgo(it.pubDate)}</span></div>
     </a>`).join("");
-  const t = new Date(c.fetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  const t = new Date(c.fetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   return `<div class="wl-news">${rows}<div class="wl-news-foot">${t} 기준 · 2분마다 자동 갱신</div></div>`;
 }
 
@@ -1723,7 +1791,7 @@ function setWlCollapsed(v) {
 function applyWlCollapse() {
   const block = document.getElementById("watchBlock");
   const bar = document.getElementById("wlCollapsedBar");
-  const list = activeWlTab === "us" ? watchlist.us : watchlist.kr;
+  const list = curList();
   document.getElementById("wlCount").textContent = list.length ? list.length + "개" : "";
   block.classList.toggle("wl-collapsed", wlCollapsed);
   wlListEl.style.display = wlCollapsed ? "none" : "";
@@ -1739,32 +1807,40 @@ function applyWlCollapse() {
 }
 
 function renderWatchlistInner() {
-  if (activeWlTab === "us") {
-    wlSummaryEl.innerHTML = "";
-    wlListEl.innerHTML = `<div class="empty-state">미국 주식은 다음 업데이트에서 추가돼요</div>`;
-    wlTimeEl.textContent = "";
-    return;
-  }
-  const list = watchlist.kr;
+  const tab = activeWlTab;
+  const list = curList();
+  const quotes = wlQuotes[tab];
   if (!list.length) {
     wlSummaryEl.innerHTML = "";
-    wlListEl.innerHTML = `<div class="empty-state">아직 등록한 종목이 없어요<br/>오른쪽 위 <b>+ 종목 추가</b>를 눌러 보세요</div>`;
+    wlListEl.innerHTML = tab === "us"
+      ? `<div class="empty-state">아직 등록한 미국 종목이 없어요<br/><b>+ 종목 추가</b>에서 애플, TSLA처럼 검색해 보세요</div>`
+      : `<div class="empty-state">아직 등록한 종목이 없어요<br/>오른쪽 위 <b>+ 종목 추가</b>를 눌러 보세요</div>`;
     wlTimeEl.textContent = "";
     return;
   }
-  renderWlSummary(list);
+  renderWlSummary(tab, list);
 
   wlListEl.innerHTML = list.map((it) => {
-    const q = wlQuotes[it.code];
+    const key = `${tab}:${it.code}`;
+    const q = quotes[it.code];
     const hold = isHolding(it);
+    const idLabel = tab === "us" ? tickerOf(it) : it.code;
     const sub = hold
-      ? `${fmtNum(it.qty, 4)}주 · 평단 ${fmtNum(it.avg, 2)}`
-      : `${esc(it.code)}${it.market ? " · " + esc(it.market) : ""}`;
+      ? `${fmtNum(it.qty, 4)}주 · 평단 ${fmtPrice(tab, it.avg)}`
+      : `${esc(idLabel)}${it.market ? " · " + esc(it.market) : ""}`;
     let priceHtml;
     if (q) {
-      priceHtml = `<div class="wl-price">${fmtNum(q.price, 2)}</div>
-        <div class="wl-chg ${dirClass(q.change)}">${signed(q.change, 2)} (${signed(q.changePercent, 2)}%)</div>`;
-    } else if (wlErrors[it.code]) {
+      priceHtml = `<div class="wl-price">${fmtPrice(tab, q.price)}</div>
+        <div class="wl-chg ${dirClass(q.change)}">${signedChg(tab, q.change)} (${signed(q.changePercent, 2)}%)</div>`;
+      if (tab === "us") {
+        const ex = q.extended;
+        if (ex && ex.price && (ex.session === "pre" || ex.session === "after")) {
+          priceHtml += `<div class="wl-at">${ex.session === "pre" ? "프리" : "애프터"} $${usd2(ex.price)} <span class="${dirClass(ex.changePercent)}">${signed(ex.changePercent, 2)}%</span></div>`;
+        }
+        const at = fmtAt((ex && ex.tradedAt && (ex.session === "pre" || ex.session === "after")) ? ex.tradedAt : q.tradedAt);
+        if (at) priceHtml += `<div class="wl-at">${at} 기준</div>`;
+      }
+    } else if (wlErrors[tab][it.code]) {
       priceHtml = `<div class="wl-chg flat-txt">시세 없음</div>`;
     } else {
       priceHtml = `<div class="wl-chg flat-txt">불러오는 중…</div>`;
@@ -1775,11 +1851,11 @@ function renderWatchlistInner() {
       const pl = evalAmt - it.avg * it.qty;
       const rate = (q.price / it.avg - 1) * 100;
       plHtml = `<div class="wl-pl" data-code="${esc(it.code)}">
-        <span class="muted">평가 ${fmtNum(evalAmt)}</span>
-        <span class="${dirClass(pl)}">${signed(pl)} (${signed(rate, 2)}%)</span>
+        <span class="muted">평가 ${fmtMoney(tab, evalAmt)}</span>
+        <span class="${dirClass(pl)}">${signedMoney(tab, pl)} (${signed(rate, 2)}%)</span>
       </div>`;
     }
-    const open = wlExpanded === it.code;
+    const open = wlExpanded === key;
     return `
       <div class="wl-row">
         <div class="wl-main" data-code="${esc(it.code)}">
@@ -1791,7 +1867,7 @@ function renderWatchlistInner() {
           <button class="wl-edit" data-edit="${esc(it.code)}" title="수정">✎</button>
         </div>
         ${plHtml}
-        ${open ? renderWlNews(it.code) : ""}
+        ${open ? renderWlNews(key) : ""}
       </div>`;
   }).join("");
 
@@ -1808,77 +1884,86 @@ function renderWatchlistInner() {
     })
   );
 
-  if (wlFetchedAt) {
-    const t = new Date(wlFetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
-    const fast = krMarketState(new Date()).state === "open";
-    wlTimeEl.textContent = `${t} 기준 · ${fast ? "30초" : "2분"}마다 갱신`;
+  if (wlFetchedAt[tab]) {
+    const t = new Date(wlFetchedAt[tab]).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+    wlTimeEl.textContent = `${t} 확인 · ${marketFast(tab) ? "30초" : "2분"}마다 갱신`;
   }
 }
 
-async function loadWlQuotes() {
-  const codes = watchlist.kr.map((it) => it.code);
-  if (!codes.length) { renderWatchlist(); return; }
-  wlLastFetch = Date.now();
+async function loadWlQuotes(tabArg) {
+  const tab = tabArg || activeWlTab;
+  const list = watchlist[tab];
+  const codes = list.map((it) => it.code);
+  if (!codes.length) { if (tab === activeWlTab) renderWatchlist(); return; }
+  wlLastFetch[tab] = Date.now();
   try {
-    const res = await fetch(`/api/quote?codes=${encodeURIComponent(codes.join(","))}`);
+    const url = `/api/quote?${tab === "us" ? "market=us&" : ""}codes=${encodeURIComponent(codes.join(","))}`;
+    const res = await fetch(url);
     const data = await res.json();
     const nextErr = {};
+    let changed = false;
     (data.items || []).forEach((q) => {
-      wlQuotes[q.code] = q;
-      // 이름이 비어있던 종목은 시세 응답의 이름으로 채움
-      const it = watchlist.kr.find((x) => x.code === q.code);
-      if (it && (!it.name || it.name === it.code) && q.name) { it.name = q.name; saveWatchlist(); }
+      wlQuotes[tab][q.code] = q;
+      // 이름이 비어있던(코드로 직접 추가한) 종목은 시세 응답의 이름으로 채움
+      const it = list.find((x) => x.code === q.code);
+      if (it && (!it.name || it.name === it.code || it.name === tickerOf(it)) && q.name && q.name !== it.code) {
+        it.name = q.name; changed = true;
+      }
     });
-    (data.errors || []).forEach((e) => { const c = String(e).split(":")[0]; if (!wlQuotes[c]) nextErr[c] = e; });
-    wlErrors = nextErr;
-    wlFetchedAt = data.fetchedAt || new Date().toISOString();
+    if (changed) saveWatchlist();
+    (data.errors || []).forEach((e) => { const c = String(e).split(":")[0]; if (!wlQuotes[tab][c]) nextErr[c] = e; });
+    wlErrors[tab] = nextErr;
+    wlFetchedAt[tab] = data.fetchedAt || new Date().toISOString();
   } catch (err) {
-    wlTimeEl.textContent = "시세를 불러오지 못했어요: " + err.message;
+    if (tab === activeWlTab) wlTimeEl.textContent = "시세를 불러오지 못했어요: " + err.message;
+    return;
   }
-  renderWatchlist();
+  if (tab === activeWlTab) renderWatchlist();
 }
 
-async function loadWlNews(code, silent) {
-  const it = watchlist.kr.find((x) => x.code === code);
+async function loadWlNews(key, silent) {
+  const [tab, code] = [key.slice(0, 2), key.slice(3)];
+  const it = watchlist[tab].find((x) => x.code === code);
   if (!it) return;
   const query = (it.newsQuery || it.name || code).trim();
-  if (!silent || !wlNewsCache[code]) wlNewsCache[code] = { items: [], loading: true };
+  if (!silent || !wlNewsCache[key]) wlNewsCache[key] = { items: [], loading: true };
   if (!silent) renderWatchlist();
   try {
     const res = await fetch(`/api/news?q=${encodeURIComponent(query)}`);
     const data = await res.json();
-    wlNewsCache[code] = { items: data.items || [], fetchedAt: data.fetchedAt || Date.now(),
+    wlNewsCache[key] = { items: data.items || [], fetchedAt: data.fetchedAt || Date.now(),
       error: (!data.items || !data.items.length) && data.errors && data.errors.length ? data.errors.join(" / ") : null };
   } catch (err) {
-    wlNewsCache[code] = { items: [], error: err.message };
+    wlNewsCache[key] = { items: [], error: err.message };
   }
-  if (wlExpanded === code) renderWatchlist();
+  if (wlExpanded === key) renderWatchlist();
 }
 
 function toggleWlNews(code) {
-  if (wlExpanded === code) {
+  const key = `${activeWlTab}:${code}`;
+  if (wlExpanded === key) {
     wlExpanded = null;
     renderWatchlist();
     return;
   }
-  wlExpanded = code;
-  const c = wlNewsCache[code];
-  if (!c || !c.fetchedAt || Date.now() - new Date(c.fetchedAt).getTime() > 60000) loadWlNews(code);
+  wlExpanded = key;
+  const c = wlNewsCache[key];
+  if (!c || !c.fetchedAt || Date.now() - new Date(c.fetchedAt).getTime() > 60000) loadWlNews(key);
   else renderWatchlist();
 }
 
-// 30초마다 확인 — 화면을 보고 있을 때만, 장 마감 땐 2분 간격
+// 30초마다 확인 — 화면을 보고 있을 때만, 보고 있는 탭만, 장 마감 땐 2분 간격
 setInterval(() => {
   if (document.visibilityState !== "visible") return;
   renderMarketStrip();
-  const fast = krMarketState(new Date()).state === "open";
-  if (Date.now() - wlLastFetch >= (fast ? WL_FAST_MS : WL_SLOW_MS) - 1000) loadWlQuotes();
+  const tab = activeWlTab;
+  if (Date.now() - wlLastFetch[tab] >= (marketFast(tab) ? WL_FAST_MS : WL_SLOW_MS) - 1000) loadWlQuotes(tab);
 }, WL_FAST_MS);
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     renderMarketStrip();
-    if (Date.now() - wlLastFetch > 15000) loadWlQuotes();
+    if (Date.now() - wlLastFetch[activeWlTab] > 15000) loadWlQuotes();
   }
 });
 
@@ -1896,22 +1981,33 @@ const stockNewsInput = document.getElementById("stockNewsInput");
 const stockSaveBtn = document.getElementById("stockSaveBtn");
 const stockDeleteBtn = document.getElementById("stockDeleteBtn");
 
-let stockDraft = null;   // { code, name, market }
+let stockDraft = null;   // { tab, code, ticker, name, market }
 let stockEditing = false;
 let searchTimer = null;
 let searchSeq = 0;
+const DIRECT_KR = "코드로 직접 추가";
+const DIRECT_US = "티커로 직접 추가";
+
+function setSheetLabels(tab) {
+  const us = tab === "us";
+  document.getElementById("stockSearchLabel").textContent = us ? "종목 이름 또는 티커" : "종목 이름 또는 6자리 코드";
+  stockSearchInput.placeholder = us ? "예: 애플, 테슬라, AAPL, QQQ" : "예: 삼성전자 또는 005930";
+  document.getElementById("stockAvgLabel").textContent = us ? "평단가 ($)" : "평단가 (원)";
+}
 
 function openStockSheet(editCode) {
+  const tab = activeWlTab;
+  setSheetLabels(tab);
   stockSearchInput.value = "";
   stockSearchResults.innerHTML = "";
   if (editCode) {
-    const it = watchlist.kr.find((x) => x.code === editCode);
+    const it = watchlist[tab].find((x) => x.code === editCode);
     if (!it) return;
-    selectStock({ code: it.code, name: it.name, market: it.market }, true);
+    selectStock({ code: it.code, ticker: it.ticker, name: it.name, market: it.market }, true);
   } else {
     stockDraft = null;
     stockEditing = false;
-    stockSheetTitle.textContent = "종목 추가";
+    stockSheetTitle.textContent = tab === "us" ? "미국 종목 추가" : "국내 종목 추가";
     stockSearchArea.style.display = "";
     stockFormArea.style.display = "none";
   }
@@ -1920,14 +2016,19 @@ function openStockSheet(editCode) {
 }
 
 function selectStock(item, forceEdit) {
-  const existing = watchlist.kr.find((x) => x.code === item.code);
+  const tab = activeWlTab;
+  const list = watchlist[tab];
+  const tk = (item.ticker || String(item.code).split(".")[0]).toUpperCase();
+  // 미국은 같은 티커(AAPL / AAPL.O)를 같은 종목으로 봄
+  const existing = list.find((x) => x.code === item.code || (tab === "us" && tickerOf(x).toUpperCase() === tk));
   stockEditing = !!existing || !!forceEdit;
-  stockDraft = { code: item.code, name: item.name || item.code, market: item.market || "" };
-  stockSheetTitle.textContent = stockEditing ? "종목 수정" : "종목 추가";
+  const base = existing || item;
+  stockDraft = { tab, code: base.code, ticker: tab === "us" ? (base.ticker || tk) : "", name: base.name || base.code, market: base.market || "" };
+  stockSheetTitle.textContent = stockEditing ? "종목 수정" : (tab === "us" ? "미국 종목 추가" : "국내 종목 추가");
   stockSearchArea.style.display = stockEditing ? "none" : "";
   stockSearchResults.innerHTML = "";
   stockFormArea.style.display = "";
-  stockSelected.textContent = `${stockDraft.name} (${stockDraft.code})`;
+  stockSelected.textContent = `${stockDraft.name} (${tab === "us" ? stockDraft.ticker : stockDraft.code})`;
   stockAvgInput.value = existing && existing.avg ? existing.avg : "";
   stockQtyInput.value = existing && existing.qty ? existing.qty : "";
   stockNewsInput.value = existing && existing.newsQuery ? existing.newsQuery : "";
@@ -1936,11 +2037,12 @@ function selectStock(item, forceEdit) {
 }
 
 function renderSearchResults(items, note) {
+  const us = activeWlTab === "us";
   stockSearchResults.innerHTML =
     items.map((it, i) => `
       <div class="search-item" data-i="${i}">
         <span>${esc(it.name)}</span>
-        <span class="si-code">${esc(it.code)}${it.market ? " · " + esc(it.market) : ""}</span>
+        <span class="si-code">${esc(us ? (it.ticker || String(it.code).split(".")[0]) : it.code)}${it.market ? " · " + esc(it.market) : ""}</span>
       </div>`).join("") +
     (note ? `<div class="sheet-hint">${note}</div>` : "");
   stockSearchResults.querySelectorAll(".search-item").forEach((el) =>
@@ -1952,28 +2054,28 @@ stockSearchInput.addEventListener("input", () => {
   clearTimeout(searchTimer);
   const q = stockSearchInput.value.trim();
   if (!q) { stockSearchResults.innerHTML = ""; return; }
+  const us = activeWlTab === "us";
   searchTimer = setTimeout(async () => {
     const seq = ++searchSeq;
-    const codeOnly = /^[0-9A-Za-z]{6}$/.test(q) && /\d/.test(q);
-    const direct = codeOnly ? [{ code: q.toUpperCase(), name: q.toUpperCase(), market: "코드로 직접 추가" }] : [];
+    const U = q.toUpperCase();
+    const directOk = us ? /^[A-Za-z][A-Za-z.\-]{0,9}$/.test(q) : (/^[0-9A-Za-z]{6}$/.test(q) && /\d/.test(q));
+    const direct = directOk ? [{ code: U, ticker: us ? U.split(".")[0] : "", name: U, market: us ? DIRECT_US : DIRECT_KR }] : [];
+    const hint = us ? "검색 결과가 없어요. 티커로 입력해 보세요 (예: AAPL)" : "검색 결과가 없어요. 6자리 종목코드로 입력해 보세요 (예: 005930)";
     stockSearchResults.innerHTML = `<div class="sheet-hint">검색 중…</div>`;
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/search?${us ? "market=us&" : ""}q=${encodeURIComponent(q)}`);
       const data = await res.json();
       if (seq !== searchSeq) return;
       let items = data.items || [];
-      if (codeOnly) {
-        const hit = items.find((x) => x.code === q.toUpperCase());
-        items = hit ? [hit, ...items.filter((x) => x !== hit)] : [...direct, ...items];
+      if (directOk) {
+        const hit = items.find((x) => (us ? (x.ticker || x.code.split(".")[0]) : x.code) === (us ? U.split(".")[0] : U));
+        items = hit ? [hit, ...items.filter((x) => x !== hit)] : [...items, ...direct];
       }
-      if (!items.length) {
-        renderSearchResults([], "검색 결과가 없어요. 6자리 종목코드로 입력해 보세요 (예: 005930)");
-      } else {
-        renderSearchResults(items);
-      }
+      if (!items.length) renderSearchResults([], hint);
+      else renderSearchResults(items);
     } catch (err) {
       if (seq !== searchSeq) return;
-      renderSearchResults(direct, direct.length ? "" : "검색이 안 돼요. 6자리 종목코드로 입력해 보세요 (예: 005930)");
+      renderSearchResults(direct, direct.length ? "" : hint);
     }
   }, 300);
 });
@@ -1986,38 +2088,66 @@ stockSaveBtn.addEventListener("click", async () => {
   if ((avg === null) !== (qty === null)) { alert("보유종목이면 평단가와 수량을 둘 다, 관심종목이면 둘 다 비워 주세요."); return; }
   if ((avg !== null && avg <= 0) || (qty !== null && qty <= 0)) { alert("0보다 큰 숫자로 입력해 주세요."); return; }
 
+  const tab = stockDraft.tab;
+  const list = watchlist[tab];
   const newsQuery = stockNewsInput.value.trim();
-  let it = watchlist.kr.find((x) => x.code === stockDraft.code);
+  let it = list.find((x) => x.code === stockDraft.code);
   if (!it) {
-    it = { code: stockDraft.code, name: stockDraft.name, market: stockDraft.market === "코드로 직접 추가" ? "" : stockDraft.market, addedAt: Date.now() };
-    watchlist.kr.push(it);
+    const isDirect = stockDraft.market === DIRECT_KR || stockDraft.market === DIRECT_US;
+    it = { code: stockDraft.code, name: stockDraft.name, market: isDirect ? "" : stockDraft.market, addedAt: Date.now() };
+    if (tab === "us") it.ticker = stockDraft.ticker;
+    list.push(it);
   }
   it.avg = avg; it.qty = qty; it.newsQuery = newsQuery || "";
   saveWatchlist();
-  delete wlNewsCache[it.code];
+  delete wlNewsCache[`${tab}:${it.code}`];
   closeManageSheet();
   toast(stockEditing ? "수정했어요" : "추가했어요");
   if (wlCollapsed) setWlCollapsed(false);
-  activeWlTab = "kr";
   renderWlTabs();
   renderWatchlist();
-  loadWlQuotes();
+  loadWlQuotes(tab);
 });
 
 stockDeleteBtn.addEventListener("click", () => {
   if (!stockDraft) return;
   if (!confirm(`${stockDraft.name}을(를) 내 종목에서 삭제할까요?`)) return;
-  watchlist.kr = watchlist.kr.filter((x) => x.code !== stockDraft.code);
+  const tab = stockDraft.tab;
+  watchlist[tab] = watchlist[tab].filter((x) => x.code !== stockDraft.code);
   saveWatchlist();
-  if (wlExpanded === stockDraft.code) wlExpanded = null;
+  if (wlExpanded === `${tab}:${stockDraft.code}`) wlExpanded = null;
   closeManageSheet();
   toast("삭제했어요");
+  renderWlTabs();
   renderWatchlist();
 });
 
 document.getElementById("wlAddBtn").addEventListener("click", () => openStockSheet());
 document.getElementById("wlTitle").addEventListener("click", () => setWlCollapsed(!wlCollapsed));
 document.getElementById("wlCollapsedBar").addEventListener("click", () => setWlCollapsed(false));
+
+/* ================= 간밤 시장 줄 ================= */
+const macroStrip = document.getElementById("macroStrip");
+async function loadMacro() {
+  try {
+    const res = await fetch("/api/macro");
+    const data = await res.json();
+    const items = data.items || [];
+    if (!items.length) {
+      macroStrip.innerHTML = `<span class="fx-chip">간밤 시장 정보를 불러오지 못했어요</span>`;
+      return;
+    }
+    macroStrip.innerHTML = items.map((m) => {
+      const val = m.prefix + Number(m.price).toLocaleString("en-US", { minimumFractionDigits: m.digits, maximumFractionDigits: m.digits }) + m.unit;
+      const chg = m.absChange
+        ? `${signed(m.change, 3)}%p`
+        : `${signed(m.changePercent, 2)}%`;
+      return `<span class="fx-chip macro-chip"><span class="mc-name">${esc(m.name)}</span> <b>${val}</b> <span class="${dirClass(m.change)}">${chg}</span></span>`;
+    }).join("");
+  } catch (err) {
+    macroStrip.innerHTML = `<span class="fx-chip">간밤 시장 정보를 불러오지 못했어요</span>`;
+  }
+}
 
 /* ----- 백업·복원 ----- */
 const backupSheet = document.getElementById("backupSheet");
@@ -2068,7 +2198,8 @@ function applyBackup(obj) {
     renderChips();
     loadNews(activeCatId);
   }
-  wlQuotes = {}; wlErrors = {}; wlExpanded = null;
+  wlQuotes = { kr: {}, us: {} }; wlErrors = { kr: {}, us: {} }; wlExpanded = null;
+  renderWlTabs();
   closeManageSheet();
   toast("복원했어요");
   renderWatchlist();
@@ -2163,6 +2294,7 @@ renderMarketStrip();
 renderWlTabs();
 renderWatchlist();
 loadWlQuotes();
+loadMacro();
 renderChips();
 loadFx();
 loadIndices();
