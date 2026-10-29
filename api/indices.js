@@ -111,6 +111,7 @@ async function fetchDomestic(cfg) {
     direction: (change ?? 0) > 0 ? "up" : (change ?? 0) < 0 ? "down" : "flat",
     realtime: true,
     tradedAt: d.localTradedAt || null,
+    marketStatus: d.marketStatus || null, // "OPEN" / "CLOSE" 등 — 장 상태 표시에 참고
     spark,
   };
 }
