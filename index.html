@@ -656,6 +656,65 @@
   }
   .wl-news .news-row { padding: 9px 0; }
   .wl-news-foot { font-size: 10.5px; color: var(--text-faint); padding: 6px 0 8px; font-family: var(--mono); }
+  /* --- 내 종목 v2: 한눈에 보이게 --- */
+  .wl-hero {
+    background: var(--card-soft);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .wl-hero-lbl { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+  .wl-hero-lbl span { color: var(--text-faint); font-weight: 400; }
+  .wl-hero-main { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+  .wl-hero-val { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .wl-hero-rate { font-size: 17px; font-weight: 800; }
+  .wl-hero-krw { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+  .wl-hero-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  }
+  .wl-hero-grid .k { font-size: 12px; color: var(--text-faint); }
+  .wl-hero-grid .v { font-size: 14.5px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .wl-hero-grid .w { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .wl-hero-note { font-size: 11px; color: var(--text-faint); margin-top: 10px; }
+
+  .wl-card { padding: 14px 2px 10px; cursor: pointer; }
+  .wl-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .wl-top2 { margin-top: 4px; }
+  .wl-card .wl-name { font-size: 16px; font-weight: 800; }
+  .wl-name .wl-tag.hold { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent); }
+  .wl-badge {
+    flex: 0 0 auto;
+    font-size: 15px; font-weight: 800;
+    padding: 4px 10px; border-radius: 9px;
+    background: var(--card-soft); color: var(--text-faint);
+  }
+  .wl-badge.up { background: #FDECEE; color: var(--up); }
+  .wl-badge.down { background: #EAF1FE; color: var(--down); }
+  .wl-pair { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; }
+  .wl-pair .k { font-size: 12px; color: var(--text-faint); }
+  .wl-pair .v { font-size: 17px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .wl-pair .r { text-align: right; }
+  .wl-card .d { font-size: 13px; font-weight: 700; }
+  .wl-pair .v .d { margin-left: 4px; }
+  .wl-watch-price { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .wl-wait { font-size: 13px; color: var(--text-faint); }
+  .wl-meta { font-size: 12.5px; color: var(--text-dim); margin-top: 8px; }
+  .wl-ext {
+    display: inline-block;
+    font-size: 12px; color: var(--text-dim);
+    background: var(--card-soft); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 8px; margin-top: 8px;
+  }
+  .wl-ext b { color: var(--text); }
+  .wl-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .wl-news-link { font-size: 12.5px; color: var(--accent); font-weight: 600; }
+  .wl-card .wl-edit {
+    width: auto; height: auto;
+    padding: 5px 12px; font-size: 12.5px; font-family: var(--kr);
+    color: var(--text-dim);
+  }
   .wl-at { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
   .macro-strip { margin-top: 10px; }
   .macro-chip { background: var(--card); }
@@ -1680,15 +1739,15 @@ function usd2(n) {
   if (n === null || n === undefined || isNaN(n)) return "-";
   return Math.abs(n).toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function fmtPrice(tab, n) { return tab === "us" ? "$" + usd2(n) : fmtNum(n, 2); }
-function fmtMoney(tab, n) { return tab === "us" ? "$" + usd2(n) : fmtNum(n); }
+function fmtPrice(tab, n) { return tab === "us" ? "$" + usd2(n) : fmtNum(n, 2) + "원"; }
+function fmtMoney(tab, n) { return tab === "us" ? "$" + usd2(n) : fmtNum(n) + "원"; }
 function signedChg(tab, n) {
   if (tab !== "us") return signed(n, 2);
   if (n === null || n === undefined || isNaN(n)) return "-";
   return (n > 0 ? "+" : n < 0 ? "-" : "") + usd2(n);
 }
 function signedMoney(tab, n) {
-  if (tab !== "us") return signed(n);
+  if (tab !== "us") return signed(n) + "원";
   if (n === null || n === undefined || isNaN(n)) return "-";
   const s = n > 0 ? "+" : n < 0 ? "-" : "";
   return s + "$" + Math.abs(n).toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1727,6 +1786,13 @@ function renderWlTabs() {
   );
 }
 
+// ▲▼ 화살표 + 퍼센트 (색만이 아니라 모양으로도 오르내림이 보이게)
+function arrowPct(n) {
+  if (n === null || n === undefined || isNaN(n)) return "-";
+  const a = n > 0 ? "▲" : n < 0 ? "▼" : "";
+  return `${a}${Math.abs(n).toFixed(2)}%`;
+}
+
 function renderWlSummary(tab, list) {
   const quotes = wlQuotes[tab];
   const holdings = list.filter((it) => isHolding(it) && quotes[it.code]);
@@ -1746,19 +1812,24 @@ function renderWlSummary(tab, list) {
   const pl = evalAmt - buy;
   const rate = buy ? (pl / buy) * 100 : 0;
   const us = tab === "us";
-  const sub = (txt) => txt ? `<div class="lbl" style="margin:3px 0 0">${txt}</div>` : "";
   wlSummaryEl.innerHTML = `
-    <div class="wl-summary">
-      <div class="wl-sum-box"><div class="lbl">평가금액</div><div class="val">${fmtMoney(tab, evalAmt)}</div>
-        ${sub(us ? krwHint(evalAmt) : `매수 ${fmtNum(buy)}`)}</div>
-      <div class="wl-sum-box"><div class="lbl">평가손익</div><div class="val ${dirClass(pl)}">${signedMoney(tab, pl)}</div>
-        ${sub(us ? krwHint(pl, true) : "")}</div>
-      <div class="wl-sum-box"><div class="lbl">수익률</div><div class="val ${dirClass(rate)}">${signed(rate, 2)}%</div>
-        ${sub(us ? `매수 ${fmtMoney(tab, buy)}` : "")}</div>
-      <div class="wl-sum-box"><div class="lbl">오늘 손익</div><div class="val ${dirClass(today)}">${signedMoney(tab, today)}</div>
-        ${sub(us ? krwHint(today, true) : "")}</div>
+    <div class="wl-hero">
+      <div class="wl-hero-lbl">내 총 손익 <span>· 보유 ${holdings.length}종목</span></div>
+      <div class="wl-hero-main">
+        <span class="wl-hero-val ${dirClass(pl)}">${signedMoney(tab, pl)}</span>
+        <span class="wl-hero-rate ${dirClass(rate)}">${arrowPct(rate)}</span>
+      </div>
+      ${us && usdKrw ? `<div class="wl-hero-krw">≈ ${signed(pl * usdKrw)}원</div>` : ""}
+      <div class="wl-hero-grid">
+        <div><div class="k">평가금액</div><div class="v">${fmtMoney(tab, evalAmt)}</div>
+          ${us && usdKrw ? `<div class="w">≈ ${fmtNum(evalAmt * usdKrw)}원</div>` : ""}</div>
+        <div><div class="k">매수금액</div><div class="v">${fmtMoney(tab, buy)}</div>
+          ${us && usdKrw ? `<div class="w">≈ ${fmtNum(buy * usdKrw)}원</div>` : ""}</div>
+        <div><div class="k">오늘 변동</div><div class="v ${dirClass(today)}">${signedMoney(tab, today)}</div>
+          ${us && usdKrw ? `<div class="w">≈ ${signed(today * usdKrw)}원</div>` : ""}</div>
+      </div>
+      ${us && usdKrw ? `<div class="wl-hero-note">원화는 현재 환율 ${fmtNum(usdKrw, 2)}원으로 계산했어요</div>` : ""}
     </div>
-    ${us && usdKrw ? `<div class="sheet-hint" style="margin:-4px 0 8px">원화는 현재 환율(${fmtNum(usdKrw, 2)}원) 기준 환산이에요</div>` : ""}
   `;
 }
 
@@ -1824,54 +1895,76 @@ function renderWatchlistInner() {
     const key = `${tab}:${it.code}`;
     const q = quotes[it.code];
     const hold = isHolding(it);
+    const open = wlExpanded === key;
     const idLabel = tab === "us" ? tickerOf(it) : it.code;
-    const sub = hold
-      ? `${fmtNum(it.qty, 4)}주 · 평단 ${fmtPrice(tab, it.avg)}`
-      : `${esc(idLabel)}${it.market ? " · " + esc(it.market) : ""}`;
-    let priceHtml;
-    if (q) {
-      priceHtml = `<div class="wl-price">${fmtPrice(tab, q.price)}</div>
-        <div class="wl-chg ${dirClass(q.change)}">${signedChg(tab, q.change)} (${signed(q.changePercent, 2)}%)</div>`;
-      if (tab === "us") {
-        const ex = q.extended;
-        if (ex && ex.price && (ex.session === "pre" || ex.session === "after")) {
-          priceHtml += `<div class="wl-at">${ex.session === "pre" ? "프리" : "애프터"} $${usd2(ex.price)} <span class="${dirClass(ex.changePercent)}">${signed(ex.changePercent, 2)}%</span></div>`;
-        }
-        const at = fmtAt((ex && ex.tradedAt && (ex.session === "pre" || ex.session === "after")) ? ex.tradedAt : q.tradedAt);
-        if (at) priceHtml += `<div class="wl-at">${at} 기준</div>`;
-      }
-    } else if (wlErrors[tab][it.code]) {
-      priceHtml = `<div class="wl-chg flat-txt">시세 없음</div>`;
-    } else {
-      priceHtml = `<div class="wl-chg flat-txt">불러오는 중…</div>`;
+
+    // 장외(프리·애프터) 가격 + 기준 시각 — 미국만
+    let extHtml = "";
+    if (tab === "us" && q) {
+      const ex = q.extended;
+      const hasEx = ex && ex.price && (ex.session === "pre" || ex.session === "after");
+      const at = fmtAt(hasEx && ex.tradedAt ? ex.tradedAt : q.tradedAt);
+      const parts = [];
+      if (hasEx) parts.push(`${ex.session === "pre" ? "프리마켓" : "애프터마켓"} <b>$${usd2(ex.price)}</b> <span class="${dirClass(ex.changePercent)}">${arrowPct(ex.changePercent)}</span>`);
+      if (at) parts.push(`${at} 기준`);
+      if (parts.length) extHtml = `<div class="wl-ext">${parts.join(" · ")}</div>`;
     }
-    let plHtml = "";
-    if (hold && q) {
+
+    let body;
+    if (!q) {
+      body = `
+        <div class="wl-top">
+          <div class="wl-name">${esc(it.name)}<span class="wl-tag ${hold ? "hold" : ""}">${hold ? "보유" : "관심"}</span></div>
+          <div class="wl-wait">${wlErrors[tab][it.code] ? "시세 없음" : "불러오는 중…"}</div>
+        </div>`;
+    } else if (hold) {
       const evalAmt = q.price * it.qty;
       const pl = evalAmt - it.avg * it.qty;
       const rate = (q.price / it.avg - 1) * 100;
-      plHtml = `<div class="wl-pl" data-code="${esc(it.code)}">
-        <span class="muted">평가 ${fmtMoney(tab, evalAmt)}</span>
-        <span class="${dirClass(pl)}">${signedMoney(tab, pl)} (${signed(rate, 2)}%)</span>
-      </div>`;
-    }
-    const open = wlExpanded === key;
-    return `
-      <div class="wl-row">
-        <div class="wl-main" data-code="${esc(it.code)}">
-          <div class="wl-name-wrap">
-            <div class="wl-name">${open ? "▾ " : ""}${esc(it.name)}<span class="wl-tag">${hold ? "보유" : "관심"}</span></div>
-            <div class="wl-sub">${sub}</div>
-          </div>
-          <div class="wl-price-wrap">${priceHtml}</div>
-          <button class="wl-edit" data-edit="${esc(it.code)}" title="수정">✎</button>
+      body = `
+        <div class="wl-top">
+          <div class="wl-name">${esc(it.name)}<span class="wl-tag hold">보유</span></div>
+          <div class="wl-badge ${rate > 0 ? "up" : rate < 0 ? "down" : ""}">${arrowPct(rate)}</div>
         </div>
-        ${plHtml}
+        <div class="wl-pair">
+          <div>
+            <div class="k">현재가</div>
+            <div class="v">${fmtPrice(tab, q.price)} <span class="d ${dirClass(q.change)}">오늘 ${arrowPct(q.changePercent)}</span></div>
+          </div>
+          <div class="r">
+            <div class="k">내 손익</div>
+            <div class="v ${dirClass(pl)}">${signedMoney(tab, pl)}</div>
+          </div>
+        </div>
+        <div class="wl-meta">${fmtNum(it.qty, 4)}주 · 평단 ${fmtPrice(tab, it.avg)} · 평가 ${fmtMoney(tab, evalAmt)}</div>
+        ${extHtml}`;
+    } else {
+      body = `
+        <div class="wl-top">
+          <div class="wl-name">${esc(it.name)}<span class="wl-tag">관심</span></div>
+          <div class="wl-watch-price">${fmtPrice(tab, q.price)}</div>
+        </div>
+        <div class="wl-top wl-top2">
+          <div class="wl-meta" style="margin:0">${esc(idLabel)}${it.market ? " · " + esc(it.market) : ""}</div>
+          <div class="d ${dirClass(q.change)}">오늘 ${arrowPct(q.changePercent)} (${signedChg(tab, q.change)})</div>
+        </div>
+        ${extHtml}`;
+    }
+
+    return `
+      <div class="wl-row ${open ? "open" : ""}">
+        <div class="wl-card" data-code="${esc(it.code)}">
+          ${body}
+          <div class="wl-foot">
+            <span class="wl-news-link">${open ? "뉴스 접기 ▴" : "관련 뉴스 ▾"}</span>
+            <button class="wl-edit" data-edit="${esc(it.code)}">수정</button>
+          </div>
+        </div>
         ${open ? renderWlNews(key) : ""}
       </div>`;
   }).join("");
 
-  wlListEl.querySelectorAll(".wl-main, .wl-pl").forEach((el) =>
+  wlListEl.querySelectorAll(".wl-card").forEach((el) =>
     el.addEventListener("click", (e) => {
       if (e.target.closest(".wl-edit")) return;
       toggleWlNews(el.dataset.code);
